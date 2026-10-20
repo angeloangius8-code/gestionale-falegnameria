@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gestionale Falegnameria</title>
+    
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Falegnameria">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='logo.png') }}">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background-color: #f1f5f9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            margin: 0;
+            padding: 0;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: #1e293b;
+            color: #fff;
+            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+        }
+        .sidebar .nav-link {
+            color: #cbd5e1;
+            font-weight: 500;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: #fff;
+            background-color: #334155;
+        }
+        .sidebar-brand {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            padding: 15px;
+            border-bottom: 1px solid #334155;
+            margin-bottom: 15px;
+        }
+        .mobile-header {
+            display: none !important;
+        }
+
+        @media screen and (max-width: 991px) {
+            .sidebar {
+                display: none !important;
+            }
+            .main-content {
+                margin-left: 0 !important;
+                padding: 12px !important;
+            }
+            .mobile-header {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                background-color: #1e293b;
+                color: #ffffff;
+                padding: 12px 16px;
+                position: sticky;
+                top: 0;
+                z-index: 1050;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="mobile-header">
+    <span class="fw-bold fs-5">🪵 Falegnameria</span>
+    <button class="btn btn-primary btn-sm fw-bold px-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+        ☰ Menu
+    </button>
+</div>
+
+<div class="offcanvas offcanvas-start text-white" tabindex="-1" id="mobileMenu" style="width: 280px; background-color: #1e293b !important;">
+    <div class="offcanvas-header border-bottom border-secondary">
+        <h5 class="offcanvas-title fw-bold">🪵 Falegnameria</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column justify-content-between">
+        <ul class="nav flex-column px-1">
+            <li class="nav-item"><a href="{{ url_for('index') }}" class="nav-link text-white py-2 fs-6">📊 Dashboard</a></li>
+            <li class="nav-item"><a href="{{ url_for('documenti') }}" class="nav-link text-white py-2 fs-6">📄 Documenti</a></li>
+            <li class="nav-item"><a href="{{ url_for('scadenziario') }}" class="nav-link text-white py-2 fs-6">📅 Scadenziario</a></li>
+            <li class="nav-item"><a href="{{ url_for('anagrafica') }}" class="nav-link text-white py-2 fs-6">👥 Anagrafica</a></li>
+            <li class="nav-item"><a href="{{ url_for('prodotti') }}" class="nav-link text-white py-2 fs-6">🏷️ Prodotti</a></li>
+            <li class="nav-item"><a href="{{ url_for('magazzino') }}" class="nav-link text-white py-2 fs-6">📦 Magazzino</a></li>
+            <li class="nav-item"><a href="{{ url_for('agenda') }}" class="nav-link text-white py-2 fs-6">📆 Agenda</a></li>
+            <li class="nav-item"><a href="{{ url_for('impostazioni') }}" class="nav-link text-white py-2 fs-6">⚙️ Impostazioni</a></li>
+        </ul>
+        <div class="pt-3 border-top border-secondary">
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger w-100 fw-bold">🚪 Esci</a>
+        </div>
+    </div>
+</div>
+
+<div class="sidebar">
+    <div>
+        <div class="sidebar-brand">
+            🪵 Falegnameria
+        </div>
+        <ul class="nav flex-column px-2">
+            <li class="nav-item"><a href="{{ url_for('index') }}" class="nav-link">📊 Dashboard</a></li>
+            <li class="nav-item"><a href="{{ url_for('documenti') }}" class="nav-link">📄 Documenti</a></li>
+            <li class="nav-item"><a href="{{ url_for('scadenziario') }}" class="nav-link">📅 Scadenziario</a></li>
+            <li class="nav-item"><a href="{{ url_for('anagrafica') }}" class="nav-link">👥 Anagrafica</a></li>
+            <li class="nav-item"><a href="{{ url_for('prodotti') }}" class="nav-link">🏷️ Prodotti</a></li>
+            <li class="nav-item"><a href="{{ url_for('magazzino') }}" class="nav-link">📦 Magazzino</a></li>
+            <li class="nav-item"><a href="{{ url_for('agenda') }}" class="nav-link">📆 Agenda</a></li>
+            <li class="nav-item"><a href="{{ url_for('impostazioni') }}" class="nav-link">⚙️ Impostazioni</a></li>
+        </ul>
+    </div>
+    <div class="p-3 border-top border-secondary">
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger w-100 btn-sm">🚪 Esci</a>
+    </div>
+</div>
+
+<div class="main-content">
+    {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register("{{ url_for('static', filename='service-worker.js') }}")
+        .then(reg => console.log('Service Worker registrato:', reg))
+        .catch(err => console.log('Errore Service Worker:', err));
+    });
+  }
+</script>
+</body>
+</html>

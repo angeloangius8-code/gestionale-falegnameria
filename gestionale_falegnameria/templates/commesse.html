@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="text-3xl font-bold mb-6">Commesse e Lavori</h2>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h3 class="text-lg font-bold mb-4 text-stone-700">Nuovo Lavoro</h3>
+        <form action="/commesse" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium">Titolo Progetto *</label>
+                <input type="text" name="titolo" placeholder="es. Cucina su misura" required class="w-full mt-1 p-2 border rounded border-stone-300">
+            </div>
+            <div>
+                <label class="block text-sm font-medium">Cliente</label>
+                <select name="cliente_id" class="w-full mt-1 p-2 border rounded border-stone-300">
+                    <option value="">-- Seleziona Cliente --</option>
+                    {% for cl in clienti %}
+                    <option value="{{ cl.id }}">{{ cl.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium">Stato Lavoro</label>
+                <select name="stato" class="w-full mt-1 p-2 border rounded border-stone-300">
+                    <option value="In Preventivo">In Preventivo</option>
+                    <option value="In Lavorazione">In Lavorazione</option>
+                    <option value="Pronto">Pronto</option>
+                    <option value="Consegnato">Consegnato</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium">Prezzo (€)</label>
+                <input type="number" step="0.01" name="prezzo" value="0" class="w-full mt-1 p-2 border rounded border-stone-300">
+            </div>
+            <div>
+                <label class="block text-sm font-medium">Data Consegna Prevista</label>
+                <input type="date" name="data_consegna" class="w-full mt-1 p-2 border rounded border-stone-300">
+            </div>
+            <button type="submit" class="w-full bg-amber-600 text-white py-2 rounded font-semibold hover:bg-amber-700">Crea Commessa</button>
+        </form>
+    </div>
+    <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+        <h3 class="text-lg font-bold mb-4 text-stone-700">Lavori In Corso</h3>
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b text-stone-500 text-sm">
+                    <th class="py-2">Progetto</th>
+                    <th class="py-2">Cliente</th>
+                    <th class="py-2">Stato</th>
+                    <th class="py-2">Prezzo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cm in commesse %}
+                <tr class="border-b hover:bg-stone-50">
+                    <td class="py-3 font-semibold">{{ cm.titolo }}</td>
+                    <td class="py-3">{{ cm.nome_cliente or 'Non specificato' }}</td>
+                    <td class="py-3">
+                        <span class="px-2 py-1 text-xs rounded font-bold bg-amber-100 text-amber-800">
+                            {{ cm.stato }}
+                        </span>
+                    </td>
+                    <td class="py-3 font-bold">€ {{ "%.2f"|format(cm.prezzo) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="py-4 text-center text-stone-400">Nessuna commessa attiva.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

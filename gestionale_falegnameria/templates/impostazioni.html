@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4">
+    <div class="mb-4">
+        <h1 class="h3 fw-bold text-dark mb-1">⚙️ Impostazioni Aziendali</h1>
+        <p class="text-muted small">Gestisci le informazioni della falegnameria, il logo e la sicurezza di accesso</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('impostazioni') }}">
+        <div class="row g-4">
+            
+            <!-- SCHEDA 1: DATI AZIENDALI & LOGO -->
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                    <h5 class="fw-bold mb-3 text-primary">Dati Generali & Intestazione Documenti</h5>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-secondary">Nome Azienda</label>
+                            <input type="text" name="nome_azienda" class="form-control" value="{{ azienda.nome_azienda if azienda else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-secondary">Ragione Sociale</label>
+                            <input type="text" name="ragione_sociale" class="form-control" value="{{ azienda.ragione_sociale if azienda else '' }}">
+                        </div>
+
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold small text-secondary">Indirizzo</label>
+                            <input type="text" name="indirizzo" class="form-control" value="{{ azienda.indirizzo if azienda else '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-secondary">Città</label>
+                            <input type="text" name="citta" class="form-control" value="{{ azienda.citta if azienda else '' }}">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-secondary">CAP</label>
+                            <input type="text" name="cap" class="form-control" value="{{ azienda.cap if azienda else '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-secondary">Provincia</label>
+                            <input type="text" name="provincia" class="form-control" value="{{ azienda.provincia if azienda else '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-secondary">Codice Univoco SDI</label>
+                            <input type="text" name="codice_univoco" class="form-control" value="{{ azienda.codice_univoco if azienda else '' }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-secondary">Partita IVA</label>
+                            <input type="text" name="p_iva" class="form-control" value="{{ azienda.p_iva if azienda else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-secondary">Codice Fiscale</label>
+                            <input type="text" name="codice_fiscale" class="form-control" value="{{ azienda.codice_fiscale if azienda else '' }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-secondary">Telefono / Cellulare</label>
+                            <input type="text" name="telefono" class="form-control" value="{{ azienda.telefono if azienda else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-secondary">Email Ordinaria</label>
+                            <input type="email" name="email" class="form-control" value="{{ azienda.email if azienda else '' }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-secondary">PEC</label>
+                            <input type="email" name="pec" class="form-control" value="{{ azienda.pec if azienda else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-secondary">IBAN</label>
+                            <input type="text" name="iban" class="form-control" value="{{ azienda.iban if azienda else '' }}">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold small text-secondary">Percorso / Nome File Logo</label>
+                            <input type="text" name="logo_path" class="form-control" value="{{ azienda.logo_path if azienda else 'static/logo.png' }}">
+                            <div class="form-text">Per impostazione predefinita viene caricato l'immagine salvata in <code>static/logo.png</code>.</div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold small text-secondary">Note Piè di Pagina (Fatture / Preventivi)</label>
+                            <textarea name="note_pie_pagina" class="form-control" rows="2">{{ azienda.note_pie_pagina if azienda else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCHEDA 2: SICUREZZA E CAMBIO PIN -->
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-light">
+                    <h5 class="fw-bold mb-3 text-dark">🔒 Sicurezza e Accesso</h5>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-secondary">PIN di Accesso App</label>
+                        <input type="password" name="pin_accesso" class="form-control form-control-lg text-center fw-bold" style="letter-spacing: 6px;" value="{{ azienda.pin_accesso if azienda else '1234' }}" maxlength="6" required>
+                        <div class="form-text">Inserisci un codice numerico da digitare all'apertura del gestionale.</div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-3">
+                        💾 Salva Tutte le Impostazioni
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </form>
+</div>
+{% endblock %}

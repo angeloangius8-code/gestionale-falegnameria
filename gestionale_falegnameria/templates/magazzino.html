@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 fw-bold text-dark mb-1">📦 Magazzino e Materiali</h1>
+            <p class="text-muted small mb-0">Giacenze di magazzino, scorta minima e prezzi di acquisto</p>
+        </div>
+        <button type="button" class="btn btn-primary font-weight-bold" data-bs-toggle="modal" data-bs-target="#modalNuovoArticolo">
+            + Nuovo Articolo
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-secondary small text-uppercase">
+                        <tr>
+                            <th class="ps-3 py-3">Codice</th>
+                            <th class="py-3">Descrizione</th>
+                            <th class="py-3">Categoria</th>
+                            <th class="py-3">Giacenza</th>
+                            <th class="py-3">Scorta Minima</th>
+                            <th class="pe-3 text-end py-3">Prezzo Vendita</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for art in articoli %}
+                        <tr>
+                            <td class="ps-3 fw-bold text-secondary">{{ art.codice }}</td>
+                            <td class="fw-bold text-dark">{{ art.descrizione }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ art.categoria }}</span></td>
+                            <td>
+                                {% if art.giacenza <= art.scorta_minima %}
+                                <span class="text-danger fw-bold">{{ art.giacenza }} {{ art.unita_misura }} ⚠️</span>
+                                {% else %}
+                                <span class="text-success fw-bold">{{ art.giacenza }} {{ art.unita_misura }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted">{{ art.scorta_minima }} {{ art.unita_misura }}</td>
+                            <td class="pe-3 text-end fw-bold">€ {{ "%.2f"|format(art.prezzo_vendita) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">Nessun articolo registrato in magazzino.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE NUOVO ARTICOLO -->
+<div class="modal fade" id="modalNuovoArticolo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('magazzino') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Aggiungi Articolo in Magazzino</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Codice Articolo</label>
+                        <input type="text" name="codice" class="form-control" required>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">Descrizione</label>
+                        <input type="text" name="descrizione" class="form-control" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Categoria</label>
+                        <input type="text" name="categoria" class="form-control" placeholder="Es. Legname, Ferramenta, Vernici" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Unità di Misura</label>
+                        <select name="unita_misura" class="form-select">
+                            <option value="pz">Pezzi (pz)</option>
+                            <option value="mq">Metri Quadri (mq)</option>
+                            <option value="ml">Metri Lineari (ml)</option>
+                            <option value="kg">Chilogrammi (kg)</option>
+                            <option value="lt">Litri (lt)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Giacenza Iniziale</label>
+                        <input type="number" step="0.01" name="giacenza" class="form-control" value="0" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Scorta Minima</label>
+                        <input type="number" step="0.01" name="scorta_minima" class="form-control" value="0" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Prezzo Acquisto (€)</label>
+                        <input type="number" step="0.01" name="prezzo_acquisto" class="form-control" value="0">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Prezzo Vendita (€)</label>
+                        <input type="number" step="0.01" name="prezzo_vendita" class="form-control" value="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva Articolo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

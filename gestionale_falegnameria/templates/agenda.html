@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 fw-bold text-dark mb-1">📆 Agenda e Promemoria</h1>
+            <p class="text-muted small mb-0">Pianificazione appuntamenti, consegne e impegni di laboratorio</p>
+        </div>
+        <button type="button" class="btn btn-primary font-weight-bold" data-bs-toggle="modal" data-bs-target="#modalNuovoEvento">
+            + Nuovo Evento
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-secondary small text-uppercase">
+                        <tr>
+                            <th class="ps-3 py-3">Data & Ora</th>
+                            <th class="py-3">Titolo Evento</th>
+                            <th class="py-3">Tipo</th>
+                            <th class="py-3">Priorità</th>
+                            <th class="py-3">Cliente / Contatto</th>
+                            <th class="py-3">Stato</th>
+                            <th class="pe-3 text-end py-3">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ev in eventi %}
+                        <tr>
+                            <td class="ps-3 font-monospace small">
+                                <strong>{{ ev.data_evento }}</strong>
+                                {% if ev.ora_evento %}<span class="text-muted">({{ ev.ora_evento }})</span>{% endif %}
+                            </td>
+                            <td class="fw-bold text-dark">
+                                {{ ev.titolo }}
+                                {% if ev.note %}<br><small class="text-muted fw-normal">{{ ev.note }}</small>{% endif %}
+                            </td>
+                            <td><span class="badge bg-light text-dark border">{{ ev.tipo_evento }}</span></td>
+                            <td>
+                                {% if ev.priorita == 'Alta' %}
+                                <span class="badge bg-danger">Alta</span>
+                                {% elif ev.priorita == 'Media' %}
+                                <span class="badge bg-warning text-dark">Media</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Bassa</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ ev.ragione_sociale if ev.ragione_sociale else '-' }}</td>
+                            <td>
+                                {% if ev.stato == 'Completato' %}
+                                <span class="badge bg-success">Completato</span>
+                                {% else %}
+                                <span class="badge bg-info text-dark">Da Fare</span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-3 text-end">
+                                <div class="d-flex justify-content-end gap-1">
+                                    {% if ev.stato != 'Completato' %}
+                                    <a href="{{ url_for('completa_evento', evento_id=ev.id) }}" class="btn btn-sm btn-outline-success">
+                                        ✓ Completa
+                                    </a>
+                                    {% endif %}
+                                    <a href="{{ url_for('elimina_evento', evento_id=ev.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Sei sicuro di voler eliminare questo evento?')">
+                                        Elimina
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">Nessun evento presente in agenda.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE NUOVO EVENTO -->
+<div class="modal fade" id="modalNuovoEvento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('agenda') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Aggiungi Evento in Agenda</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">Titolo Evento / Descrizione</label>
+                        <input type="text" name="titolo" class="form-control" placeholder="Es. Consegna porte, Sopralluogo..." required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Tipo Evento</label>
+                        <select name="tipo_evento" class="form-select">
+                            <option value="Promemoria">Promemoria</option>
+                            <option value="Sopralluogo">Sopralluogo</option>
+                            <option value="Consegna">Consegna</option>
+                            <option value="Montaggio">Montaggio</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Data Evento</label>
+                        <input type="date" name="data_evento" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Ora Evento</label>
+                        <input type="time" name="ora_evento" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Priorità</label>
+                        <select name="priorita" class="form-select">
+                            <option value="Media">Media</option>
+                            <option value="Alta">Alta</option>
+                            <option value="Bassa">Bassa</option>
+                        </select>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label small fw-bold">Cliente Collegato (Opzionale)</label>
+                        <select name="anagrafica_id" class="form-select">
+                            <option value="">-- Nessun cliente --</option>
+                            {% for a in anagrafiche %}
+                            <option value="{{ a.id }}">{{ a.ragione_sociale }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label small fw-bold">Note aggiuntive</label>
+                        <textarea name="note" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva Evento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

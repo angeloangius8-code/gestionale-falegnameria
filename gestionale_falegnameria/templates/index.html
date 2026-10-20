@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    .title-main { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+    .subtitle-main { color: #64748b; font-size: 14px; margin-bottom: 20px; }
+
+    .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+
+    .card-dashboard { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .card-header-dash { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
+    .card-title-dash { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; }
+
+    .chart-box-body { display: grid; grid-template-columns: 140px 1fr; gap: 15px; align-items: center; }
+
+    .kpi-side { display: flex; flex-direction: column; gap: 12px; }
+    .kpi-item-title { font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 2px; text-transform: uppercase; }
+    .kpi-item-value { font-size: 15px; font-weight: 700; }
+
+    .val-attivo { color: #0284c7; }
+    .val-passivo { color: #64748b; }
+    .val-incassato { color: #00875a; }
+    .val-scaduto { color: #dc2626; }
+
+    .canvas-container { position: relative; width: 100%; height: 200px; }
+    .rate-list-container { max-height: 200px; overflow-y: auto; }
+    .rate-table { width: 100%; border-collapse: collapse; }
+    .rate-table td { padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+    .rate-client { font-weight: 600; color: #0284c7; }
+    .rate-date { color: #94a3b8; font-size: 12px; text-align: center; }
+    .rate-amount { font-weight: 700; color: #dc2626; text-align: right; }
+
+    /* OTTIMIZZAZIONE PER SMARTPHONE E TABLET */
+    @media (max-width: 992px) {
+        .dashboard-grid { 
+            grid-template-columns: 1fr !important; /* Griglia a singola colonna per sfruttare tutto lo schermo mobile */
+        }
+        .chart-box-body { 
+            grid-template-columns: 1fr !important; /* Dispone i KPI sopra e il grafico sotto */
+            gap: 10px;
+        }
+        .canvas-container {
+            height: 180px !important;
+        }
+        .title-main {
+            font-size: 20px;
+        }
+    }
+</style>
+
+<div>
+    <!-- INTESTAZIONE E SELEZIONE FILTRI -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
+        <div>
+            <h1 class="title-main">
+                {% if vista == 'entrate' %}
+                🟢 Dashboard - Sole Entrate
+                {% elif vista == 'uscite' %}
+                🔴 Dashboard - Sole Uscite
+                {% else %}
+                📊 Dashboard - Panoramica Generale
+                {% endif %}
+            </h1>
+            <p class="subtitle-main mb-0">
+                {% if tipo_filtro == 'periodo' and data_inizio and data_fine %}
+                Periodo: dal {{ data_inizio }} al {{ data_fine }}
+                {% else %}
+                Anno di riferimento: {{ anno_selezionato }}
+                {% endif %}
+            </p>
+        </div>
+
+        <!-- FORM DEI FILTRI (VISTA, MODALITÀ TEMPORALE, ANNO / RANGE DATE) -->
+        <div class="bg-white p-2 border rounded-3 shadow-sm w-100-mobile">
+            <form method="GET" action="{{ url_for('index') }}" class="d-flex flex-wrap align-items-center gap-2" id="filterForm">
+                
+                <!-- SELETTORE VISTA -->
+                <div>
+                    <label class="form-label small fw-bold mb-0 text-muted">Vista:</label>
+                    <select name="vista" class="form-select form-select-sm fw-bold border-secondary" style="width: 160px;" onchange="this.form.submit()">
+                        <option value="generale" {% if vista == 'generale' %}selected{% endif %}>🌐 Generale</option>
+                        <option value="entrate" {% if vista == 'entrate' %}selected{% endif %}>🟢 Sole Entrate</option>
+                        <option value="uscite" {% if vista == 'uscite' %}selected{% endif %}>🔴 Sole Uscite</option>
+                    </select>
+                </div>
+
+                <!-- SELETTORE TIPO FILTRO -->
+                <div>
+                    <label class="form-label small fw-bold mb-0 text-muted">Filtra per:</label>
+                    <select name="tipo_filtro" id="tipoFiltroSelect" class="form-select form-select-sm border-secondary" style="width: 140px;" onchange="toggleFiltro()">
+                        <option value="anno" {% if tipo_filtro == 'anno' %}selected{% endif %}>📅 Anno</option>
+                        <option value="periodo" {% if tipo_filtro == 'periodo' %}selected{% endif %}>📆 Periodo Custom</option>
+                    </select>
+                </div>
+
+                <!-- CAMPO ANNO -->
+                <div id="boxAnno" style="{% if tipo_filtro == 'periodo' %}display: none;{% endif %}">
+                    <label class="form-label small fw-bold mb-0 text-muted">Anno:</label>
+                    <select name="anno" class="form-select form-select-sm border-secondary" style="width: 100px;" onchange="this.form.submit()">
+                        {% for y in range(2022, 2031) %}
+                        <option value="{{ y }}" {% if y == anno_selezionato %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- CAMPI RANGE DATE -->
+                <div id="boxPeriodo" class="d-flex align-items-center gap-1" style="{% if tipo_filtro != 'periodo' %}display: none;{% endif %}">
+                    <div>
+                        <label class="form-label small fw-bold mb-0 text-muted">Dal:</label>
+                        <input type="date" name="data_inizio" class="form-control form-control-sm border-secondary" value="{{ data_inizio }}">
+                    </div>
+                    <div>
+                        <label class="form-label small fw-bold mb-0 text-muted">Al:</label>
+                        <input type="date" name="data_fine" class="form-control form-control-sm border-secondary" value="{{ data_fine }}">
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary mt-3 fw-bold">Filtra</button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- SEZIONE 1: PANORAMICA GENERALE -->
+    {% if vista == 'generale' %}
+    <div class="dashboard-grid">
+        <div class="card-dashboard">
+            <div class="card-header-dash"><h2 class="card-title-dash">Fatturato</h2></div>
+            <div class="chart-box-body">
+                <div class="kpi-side">
+                    <div>
+                        <div class="kpi-item-title">Fatturato attivo</div>
+                        <div class="kpi-item-value val-attivo">€ {{ "%.2f"|format(fatturato|default(0)) }}</div>
+                    </div>
+                    <div>
+                        <div class="kpi-item-title">Fatturato passivo</div>
+                        <div class="kpi-item-value val-passivo">€ {{ "%.2f"|format(fatturato_passivo_mesi|sum|default(0)) }}</div>
+                    </div>
+                </div>
+                <div class="canvas-container"><canvas id="chartFatturato"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card-dashboard">
+            <div class="card-header-dash"><h2 class="card-title-dash">IVA</h2></div>
+            <div class="chart-box-body">
+                <div class="kpi-side">
+                    <div>
+                        <div class="kpi-item-title">Saldo IVA</div>
+                        <div class="kpi-item-value val-passivo">€ {{ "%.2f"|format(saldo_iva_mesi|sum|default(0)) }}</div>
+                    </div>
+                </div>
+                <div class="canvas-container"><canvas id="chartIva"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card-dashboard">
+            <div class="card-header-dash"><h2 class="card-title-dash">Incassi</h2></div>
+            <div class="chart-box-body">
+                <div class="kpi-side">
+                    <div>
+                        <div class="kpi-item-title">Incassato</div>
+                        <div class="kpi-item-value val-incassato">€ {{ "%.2f"|format(incassato_totale|default(0)) }}</div>
+                    </div>
+                    <div>
+                        <div class="kpi-item-title">In sospeso</div>
+                        <div class="kpi-item-value val-scaduto">€ {{ "%.2f"|format(sospeso|default(0)) }}</div>
+                    </div>
+                </div>
+                <div class="canvas-container"><canvas id="chartIncassi"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card-dashboard">
+            <div class="card-header-dash">
+                <h2 class="card-title-dash">Rate da incassare</h2>
+                <span class="badge bg-light text-danger border">In Sospeso</span>
+            </div>
+            <div class="rate-list-container">
+                <table class="rate-table">
+                    <tbody>
+                        {% for item in entrate %}
+                        <tr>
+                            <td class="rate-client">{{ item.ragione_sociale }}</td>
+                            <td class="rate-date">{{ item.data_doc }}</td>
+                            <td class="rate-amount">€ {{ "%.2f"|format(item.totale_documento|default(0)) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">Nessuna rata in sospeso</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- SEZIONE 2: SOLE ENTRATE -->
+    {% if vista == 'entrate' %}
+    <div class="dashboard-grid">
+        <div class="card-dashboard">
+            <div class="card-header-dash"><h2 class="card-title-dash">Fatturato Attivo</h2></div>
+            <div class="chart-box-body">
+                <div class="kpi-side">
+                    <div>
+                        <div class="kpi-item-title">Totale Vendite</div>
+                        <div class="kpi-item-value val-attivo">€ {{ "%.2f"|format(fatturato|default(0)) }}</div>
+                    </div>
+                </div>
+                <div class="canvas-container"><canvas id="chartSoloEntrate"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card-dashboard">
+            <div class="card-header-dash"><h2 class="card-title-dash">Rate da Incassare (Clienti)</h2></div>
+            <div class="rate-list-container">
+                <table class="rate-table">
+                    <tbody>
+                        {% for item in entrate %}
+                        <tr>
+                            <td class="rate-client">{{ item.ragione_sociale }}</td>
+                            <td class="rate-date">{{ item.data_doc }}</td>
+                            <td class="rate-amount">€ {{ "%.2f"|format(item.totale_documento|default(0)) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">Nessun incasso in sospeso</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- SEZIONE 3: SOLE USCITE -->
+    {% if vista == 'uscite' %}
+    <div class="dashboard-grid">
+        <div class="card-dashboard">
+            <div class="card-header-dash"><h2 class="card-title-dash">Acquisti & Uscite</h2></div>
+            <div class="chart-box-body">
+                <div class="kpi-side">
+                    <div>
+                        <div class="kpi-item-title">Totale Passivo</div>
+                        <div class="kpi-item-value val-scaduto">€ {{ "%.2f"|format(fatturato_passivo_mesi|sum|default(0)) }}</div>
+                    </div>
+                </div>
+                <div class="canvas-container"><canvas id="chartSoloUscite"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card-dashboard">
+            <div class="card-header-dash"><h2 class="card-title-dash">Fatture Fornitori</h2></div>
+            <div class="rate-list-container">
+                <table class="rate-table">
+                    <tbody>
+                        {% for item in uscite %}
+                        <tr>
+                            <td class="rate-client" style="color: #475569;">{{ item.ragione_sociale }}</td>
+                            <td class="rate-date">{{ item.data_doc }}</td>
+                            <td class="rate-amount" style="color: #64748b;">€ {{ "%.2f"|format(item.totale_documento|default(0)) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">Nessuna spesa registrata</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    function toggleFiltro() {
+        const val = document.getElementById('tipoFiltroSelect').value;
+        const boxAnno = document.getElementById('boxAnno');
+        const boxPeriodo = document.getElementById('boxPeriodo');
+
+        if (val === 'anno') {
+            boxAnno.style.display = 'block';
+            boxPeriodo.style.display = 'none';
+        } else {
+            boxAnno.style.display = 'none';
+            boxPeriodo.style.display = 'flex';
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+        const attivoData = {{ fatturato_attivo_mesi|tojson|safe if fatturato_attivo_mesi else '[]' }};
+        const passivoData = {{ fatturato_passivo_mesi|tojson|safe if fatturato_passivo_mesi else '[]' }};
+        const saldoIvaData = {{ saldo_iva_mesi|tojson|safe if saldo_iva_mesi else '[]' }};
+        const incassatoData = {{ incassato_mesi|tojson|safe if incassato_mesi else '[]' }};
+        const scadutoData = {{ scaduto_mesi|tojson|safe if scaduto_mesi else '[]' }};
+
+        if (document.getElementById('chartFatturato')) {
+            new Chart(document.getElementById('chartFatturato'), {
+                type: 'bar',
+                data: {
+                    labels: mesi,
+                    datasets: [
+                        { label: 'Attivo', data: attivoData, backgroundColor: '#e0f2fe', borderColor: '#0284c7', borderWidth: 1 },
+                        { label: 'Passivo', data: passivoData, backgroundColor: '#f1f5f9', borderColor: '#94a3b8', borderWidth: 1 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        if (document.getElementById('chartIva')) {
+            new Chart(document.getElementById('chartIva'), {
+                type: 'line',
+                data: { 
+                    labels: mesi, 
+                    datasets: [{ label: 'Saldo IVA', data: saldoIvaData, borderColor: '#475569', backgroundColor: '#0f172a', pointRadius: 3 }] 
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        if (document.getElementById('chartIncassi')) {
+            new Chart(document.getElementById('chartIncassi'), {
+                type: 'bar',
+                data: {
+                    labels: mesi,
+                    datasets: [
+                        { label: 'Incassato', data: incassatoData, backgroundColor: '#dcfce7', borderColor: '#00875a', borderWidth: 1 },
+                        { label: 'In Sospeso', data: scadutoData, backgroundColor: '#ffe4e6', borderColor: '#dc2626', borderWidth: 1 }
+                    ]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } }, 
+                    scales: { x: { stacked: true }, y: { stacked: true } } 
+                }
+            });
+        }
+
+        if (document.getElementById('chartSoloEntrate')) {
+            new Chart(document.getElementById('chartSoloEntrate'), {
+                type: 'bar',
+                data: {
+                    labels: mesi,
+                    datasets: [{ label: 'Entrate', data: attivoData, backgroundColor: '#0284c7' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        if (document.getElementById('chartSoloUscite')) {
+            new Chart(document.getElementById('chartSoloUscite'), {
+                type: 'bar',
+                data: {
+                    labels: mesi,
+                    datasets: [{ label: 'Uscite', data: passivoData, backgroundColor: '#dc2626' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+    });
+</script>
+{% endblock %}

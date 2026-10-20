@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 fw-bold text-dark mb-1">👥 Anagrafica Clienti e Fornitori</h1>
+            <p class="text-muted small mb-0">Gestione dei contatti aziendali e dati di fatturazione</p>
+        </div>
+        <button type="button" class="btn btn-primary font-weight-bold" data-bs-toggle="modal" data-bs-target="#modalNuovoContatto">
+            + Nuovo Contatto
+        </button>
+    </div>
+
+    <!-- TABELLA CONTATTI -->
+    <div class="card border-0 shadow-sm rounded-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-secondary small text-uppercase">
+                        <tr>
+                            <th class="ps-3 py-3">Tipo</th>
+                            <th class="py-3">Ragione Sociale / Nome</th>
+                            <th class="py-3">P. IVA / C.F.</th>
+                            <th class="py-3">Contatti</th>
+                            <th class="py-3">Città</th>
+                            <th class="pe-3 text-end py-3">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in contatti %}
+                        <tr>
+                            <td class="ps-3">
+                                {% if c.tipo == 'Cliente' %}
+                                <span class="badge bg-info text-dark">Cliente</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Fornitore</span>
+                                {% endif %}
+                            </td>
+                            <td class="fw-bold text-dark">{{ c.ragione_sociale }}</td>
+                            <td class="small text-muted">
+                                P.IVA: {{ c.p_iva if c.p_iva else '-' }}<br>
+                                CF: {{ c.codice_fiscale if c.codice_fiscale else '-' }}
+                            </td>
+                            <td class="small">
+                                {{ c.telefono if c.telefono else '' }}<br>
+                                <span class="text-muted">{{ c.email if c.email else '' }}</span>
+                            </td>
+                            <td>{{ c.citta if c.citta else '-' }} {{ '(' + c.provincia + ')' if c.provincia else '' }}</td>
+                            <td class="pe-3 text-end">
+                                <a href="{{ url_for('elimina_anagrafica', id=c.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Eliminare questo contatto?')">Elimina</a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">Nessun contatto presente in anagrafica.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE NUOVO CONTATTO -->
+<div class="modal fade" id="modalNuovoContatto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('anagrafica') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Aggiungi Contatto Anagrafica</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Tipo Contatto</label>
+                        <select name="tipo" class="form-select" required>
+                            <option value="Cliente">Cliente</option>
+                            <option value="Fornitore">Fornitore</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">Ragione Sociale / Nome</label>
+                        <input type="text" name="ragione_sociale" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Partita IVA</label>
+                        <input type="text" name="p_iva" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Codice Fiscale</label>
+                        <input type="text" name="codice_fiscale" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Codice SDI</label>
+                        <input type="text" name="codice_destinatario" class="form-control" value="0000000">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Email</label>
+                        <input type="email" name="email" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">PEC</label>
+                        <input type="email" name="pec" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Telefono / Cellulare</label>
+                        <input type="text" name="telefono" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Indirizzo</label>
+                        <input type="text" name="indirizzo" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Città</label>
+                        <input type="text" name="citta" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">CAP</label>
+                        <input type="text" name="cap" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Provincia</label>
+                        <input type="text" name="provincia" class="form-control" maxlength="2">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva Contatto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

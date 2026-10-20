@@ -1,0 +1,645 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    body {
+        background-color: #f8fafc;
+        color: #1e293b;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .title-main {
+        font-size: 28px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 2px;
+        letter-spacing: -0.5px;
+    }
+    .subtitle-main {
+        color: #64748b;
+        font-size: 14px;
+        margin-bottom: 24px;
+    }
+
+    /* CONTENITORE PRINCIPALE FLUIDO */
+    .layout-grid {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+
+    @media (max-width: 992px) {
+        .layout-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* CARD CONTENITORI */
+    .card-custom {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+    .card-title-custom {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0;
+    }
+
+    /* PULSANTE FILTRO CON ICONA IMBUTO */
+    .btn-toggle-filter {
+        background-color: #ffffff;
+        color: #0f172a;
+        border: 1px solid #cbd5e1;
+        font-weight: 700;
+        font-size: 13px;
+        border-radius: 10px;
+        padding: 6px 12px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .btn-toggle-filter:hover {
+        background-color: #f1f5f9;
+        border-color: #0f172a;
+    }
+    .btn-toggle-filter svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: #0f172a;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    /* PANNELLO FILTRI AD APERTURA/CHIUSURA DINAMICA SMUSSATA */
+    .filter-dropdown-panel {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        background-color: #f8fafc;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        padding: 0 16px;
+        margin-top: 0;
+        margin-bottom: 0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0);
+        transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .filter-dropdown-panel.open {
+        max-height: 300px;
+        opacity: 1;
+        border-color: #cbd5e1;
+        padding: 16px;
+        margin-top: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    /* REGISTRO A DESTRA CON SCROLL AUTONOMO */
+    .registro-scroll-container {
+        max-height: calc(100vh - 220px);
+        overflow-y: auto;
+    }
+
+    /* CAMPI FORM E LABEL */
+    .form-label-custom {
+        font-size: 12px;
+        font-weight: 700;
+        color: #475569;
+        margin-bottom: 4px;
+        display: block;
+    }
+    .form-control-custom, .form-select-custom {
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 14px;
+        color: #1e293b;
+        background-color: #ffffff;
+        width: 100%;
+        transition: border-color 0.15s ease;
+    }
+    .form-control-custom:focus, .form-select-custom:focus {
+        border-color: #d97706;
+        box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+        outline: none;
+    }
+
+    /* BOX SELEZIONE DA LISTINO */
+    .listino-box {
+        background-color: #fefce8;
+        border: 1px solid #fef08a;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 20px;
+    }
+    .listino-title {
+        color: #b45309;
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+    .btn-inserisci-listino {
+        background-color: #d97706;
+        color: #ffffff !important;
+        font-weight: 700;
+        font-size: 13px;
+        border-radius: 8px;
+        padding: 6px 16px;
+        border: none;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    .btn-inserisci-listino:hover { background-color: #b45309; }
+
+    .section-elementi-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    .btn-aggiungi-riga {
+        background-color: #00875a;
+        color: #ffffff !important;
+        font-weight: 700;
+        font-size: 13px;
+        border-radius: 8px;
+        padding: 6px 14px;
+        border: none;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    .btn-aggiungi-riga:hover { background-color: #006644; }
+
+    /* ANIMAZIONI DINAMICHE PER I BOX DEGLI ELEMENTI INSERITI */
+    .box-elemento {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 12px;
+        opacity: 0;
+        transform: translateY(-10px);
+        animation: slideInBox 0.25s forwards ease-out;
+        transition: all 0.25s ease-out;
+    }
+
+    @keyframes slideInBox {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .box-elemento.fade-out {
+        opacity: 0;
+        transform: scale(0.95);
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        height: 0;
+        overflow: hidden;
+    }
+
+    .label-micro {
+        font-size: 11px;
+        font-weight: 800;
+        color: #94a3b8;
+        letter-spacing: 0.5px;
+    }
+    .btn-rimuovi {
+        color: #dc2626 !important;
+        font-weight: 700;
+        font-size: 12px;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+    }
+
+    /* TABELLA REGISTRO */
+    .table-custom {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .table-custom th {
+        font-size: 11px;
+        font-weight: 800;
+        color: #94a3b8;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 12px;
+        position: sticky;
+        top: 0;
+        background-color: #ffffff;
+        z-index: 2;
+    }
+    .table-custom td {
+        padding: 16px 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 14px;
+    }
+    .badge-doc {
+        background-color: #e2e8f0;
+        color: #0f172a;
+        font-weight: 800;
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        display: inline-block;
+    }
+
+    /* PULSANTI AZIONI */
+    .btn-pdf {
+        background-color: #dc2626;
+        color: #ffffff !important;
+        font-weight: 700;
+        font-size: 13px;
+        border-radius: 20px;
+        padding: 6px 16px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .btn-pdf:hover { background-color: #b91c1c; }
+
+    .btn-firma {
+        background-color: #d97706;
+        color: #ffffff !important;
+        font-weight: 700;
+        font-size: 13px;
+        border-radius: 20px;
+        padding: 6px 16px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .btn-firma:hover { background-color: #b45309; }
+
+    .btn-modifica {
+        background-color: #0284c7;
+        color: #ffffff !important;
+        font-weight: 700;
+        font-size: 13px;
+        border-radius: 20px;
+        padding: 6px 12px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .btn-modifica:hover { background-color: #0369a1; }
+
+    .btn-elimina {
+        background-color: #dc2626;
+        color: #ffffff !important;
+        font-weight: 700;
+        font-size: 13px;
+        border-radius: 20px;
+        padding: 6px 12px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .btn-elimina:hover { background-color: #b91c1c; }
+</style>
+
+<div class="container-fluid py-4 px-4">
+    <h1 class="title-main">Fatture, Preventivi e DDT</h1>
+    <p class="subtitle-main">Crea e gestisci la documentazione contabile della falegnameria</p>
+
+    <!-- GRIGLIA PRINCIPALE -->
+    <div class="layout-grid">
+
+        <!-- SINISTRA: NUOVO DOCUMENTO -->
+        <div class="card-custom">
+            <h2 class="card-title-custom mb-3">Nuovo Documento</h2>
+
+            <form action="{{ url_for('documenti') }}" method="POST">
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label-custom">Tipo</label>
+                        <select name="tipo_doc" class="form-select-custom" required>
+                            <option value="Preventivo" selected>Preventivo</option>
+                            <option value="Fattura">Fattura</option>
+                            <option value="DDT">DDT</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label-custom">Numero Doc.</label>
+                        <input type="text" name="numero_doc" class="form-control-custom" value="1" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label-custom">Data Documento</label>
+                    <input type="date" name="data_doc" class="form-control-custom" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label-custom">Cliente / Fornitore</label>
+                    <select name="anagrafica_id" class="form-select-custom" required>
+                        <option value="" disabled selected>Falegnameria AP di Pietro Angius</option>
+                        {% for a in anagrafiche %}
+                            <option value="{{ a.id }}">{{ a.ragione_sociale }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="listino-box">
+                    <div class="listino-title">⚡ Aggiungi Rapida da Listino</div>
+                    <div class="d-flex gap-2">
+                        <select id="seleziona_listino" class="form-select-custom">
+                            <option value="">-- Seleziona un Prodotto dal Listino --</option>
+                            {% for p in prodotti %}
+                                <option value="{{ p.id }}" data-codice="{{ p.codice }}" data-nome="{{ p.nome }}" data-prezzo="{{ p.prezzo_unitario }}" data-um="{{ p.unita_misura }}" data-iva="{{ p.aliquota_iva }}">
+                                    {{ p.nome }} (€ {{ "%.2f"|format(p.prezzo_unitario) }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn-inserisci-listino" onclick="inserisciDaListino()">+ Inserisci</button>
+                    </div>
+                </div>
+
+                <div class="section-elementi-header">
+                    <label class="form-label-custom mb-0">Elementi del Preventivo / Lavorazioni</label>
+                    <button type="button" class="btn-aggiungi-riga" onclick="aggiungiRigaNuovo()">+ Aggiungi riga</button>
+                </div>
+
+                <div id="contenitore-righe">
+                    <div class="box-elemento">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="label-micro">ELEMENTO</span>
+                            <button type="button" class="btn-rimuovi" onclick="rimuoviElemento(this)">🗑️ Rimuovi</button>
+                        </div>
+                        <input type="hidden" name="codice[]" value="0899">
+                        <input type="hidden" name="unita_misura[]" value="pz">
+                        <input type="text" name="descrizione[]" class="form-control-custom mb-2" placeholder="Descrizione elemento o lavorazione" required>
+                        
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <label class="label-micro d-block mb-1">Quantità</label>
+                                <input type="number" step="0.01" name="quantita[]" class="form-control-custom" value="1" required>
+                            </div>
+                            <div class="col-4">
+                                <label class="label-micro d-block mb-1">Prezzo (€)</label>
+                                <input type="number" step="0.01" name="prezzo_unitario[]" class="form-control-custom" value="0,00" required>
+                            </div>
+                            <div class="col-4">
+                                <label class="label-micro d-block mb-1">IVA %</label>
+                                <input type="number" step="0.01" name="aliquota_iva[]" class="form-control-custom" value="22" required>
+                                <input type="hidden" name="sconto[]" value="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn w-100 mt-3 fw-bold py-2 rounded-3 text-white" style="background-color: #0f172a; border: none;">Salva e Genera Documento</button>
+            </form>
+        </div>
+
+        <!-- DESTRA: REGISTRO DOCUMENTI EMESSI -->
+        <div class="card-custom">
+            <!-- INTESTAZIONE REGISTRO CON ICONA IMBUTO -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="card-title-custom">Registro Documenti Emessi</h2>
+                <button type="button" class="btn-toggle-filter" onclick="toggleFiltri()" title="Filtra documenti">
+                    <!-- ICONA SVG IMBUTO -->
+                    <svg viewBox="0 0 24 24">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                    </svg>
+                    <span>Filtri</span>
+                    <span id="badge-filtro-attivo" class="badge bg-warning text-dark ms-1 d-none">•</span>
+                </button>
+            </div>
+
+            <!-- PANNELLO FILTRI AD APERTURA/CHIUSURA DINAMICA -->
+            <div id="panel-filtri" class="filter-dropdown-panel">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3 col-6">
+                        <label class="form-label-custom">Cerca Codice / N°</label>
+                        <input type="text" id="filter-codice" class="form-control-custom" placeholder="Es. 167/2026..." onkeyup="applicafiltri()">
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label-custom">Anno</label>
+                        <select id="filter-anno" class="form-select-custom" onchange="applicafiltri()">
+                            <option value="">Tutti</option>
+                            <option value="2027">2027</option>
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-6">
+                        <label class="form-label-custom">Da Data</label>
+                        <input type="date" id="filter-date-from" class="form-control-custom" onchange="applicafiltri()">
+                    </div>
+                    <div class="col-md-2 col-6">
+                        <label class="form-label-custom">A Data</label>
+                        <input type="date" id="filter-date-to" class="form-control-custom" onchange="applicafiltri()">
+                    </div>
+                    <div class="col-md-2 col-12 text-end">
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100 rounded-2 fw-bold" onclick="resetFiltri()" title="Reset Filtri">Reset ❌</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="registro-scroll-container">
+                <table class="table-custom align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 28%;">TIPO / N°</th>
+                            <th style="width: 15%;">DATA</th>
+                            <th style="width: 30%;">CLIENTE</th>
+                            <th style="width: 15%;">TOTALE DOC.</th>
+                            <th class="text-end" style="width: 12%;">AZIONI / STAMPA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-documenti">
+                        {% for doc in documenti %}
+                        <tr class="row-doc" 
+                            data-codice="{{ doc.tipo_doc }} N° {{ doc.numero_doc }}/{{ doc.anno }}"
+                            data-anno="{{ doc.anno }}"
+                            data-data="{{ doc.data_doc }}">
+                            <td>
+                                <span class="badge-doc">
+                                    {{ doc.tipo_doc|upper }} N° {{ doc.numero_doc }}/{{ doc.anno }}
+                                </span>
+                            </td>
+                            <td style="color: #64748b;">{{ doc.data_doc }}</td>
+                            <td style="font-weight: 700; color: #0f172a;">{{ doc.ragione_sociale }}</td>
+                            <td style="font-weight: 800; color: #00875a;">€ {{ "%.2f"|format(doc.totale_documento) }}</td>
+                            <td class="text-end text-nowrap">
+                                <a href="{{ url_for('pdf_documento', doc_id=doc.id) }}" class="btn-pdf" target="_blank" title="Scarica PDF">
+                                    <i class="fas fa-file-pdf"></i> PDF
+                                </a>
+                                <a href="{{ url_for('firma_documento', doc_id=doc.id) }}" class="btn-firma ms-1" title="Firma Digitale">
+                                    <i class="fas fa-key"></i> Firma
+                                </a>
+                                <a href="{{ url_for('modifica_documento', doc_id=doc.id) }}" class="btn-modifica ms-1" title="Modifica Manuale">
+                                    <i class="fas fa-pen"></i>
+                                </a>
+                                <a href="{{ url_for('elimina_documento', doc_id=doc.id) }}" class="btn-elimina ms-1" title="Elimina Documento" onclick="return confirm('Sei sicuro di voler eliminare questo documento?');">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">Nessun documento presente nel registro.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+function toggleFiltri() {
+    let panel = document.getElementById('panel-filtri');
+    panel.classList.toggle('open');
+}
+
+function rimuoviElemento(btn) {
+    let box = btn.closest('.box-elemento');
+    box.classList.add('fade-out');
+    setTimeout(() => {
+        box.remove();
+    }, 250);
+}
+
+function applicafiltri() {
+    let filterCodice = document.getElementById('filter-codice').value.toLowerCase();
+    let filterAnno = document.getElementById('filter-anno').value;
+    let filterFrom = document.getElementById('filter-date-from').value;
+    let filterTo = document.getElementById('filter-date-to').value;
+
+    let badge = document.getElementById('badge-filtro-attivo');
+    if (filterCodice || filterAnno || filterFrom || filterTo) {
+        badge.classList.remove('d-none');
+    } else {
+        badge.classList.add('d-none');
+    }
+
+    let rows = document.querySelectorAll('.row-doc');
+
+    rows.forEach(function(row) {
+        let docCodice = row.getAttribute('data-codice').toLowerCase();
+        let docAnno = row.getAttribute('data-anno');
+        let docData = row.getAttribute('data-data');
+
+        let matchCodice = filterCodice === "" || docCodice.includes(filterCodice);
+        let matchAnno = filterAnno === "" || docAnno === filterAnno;
+        
+        let matchDataFrom = filterFrom === "" || docData >= filterFrom;
+        let matchDataTo = filterTo === "" || docData <= filterTo;
+
+        if (matchCodice && matchAnno && matchDataFrom && matchDataTo) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+    });
+}
+
+function resetFiltri() {
+    document.getElementById('filter-codice').value = "";
+    document.getElementById('filter-anno').value = "";
+    document.getElementById('filter-date-from').value = "";
+    document.getElementById('filter-date-to').value = "";
+    applicafiltri();
+}
+
+function aggiungiRigaNuovo() {
+    let contenitore = document.getElementById('contenitore-righe');
+    let div = document.createElement('div');
+    div.className = 'box-elemento';
+    div.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="label-micro">ELEMENTO</span>
+            <button type="button" class="btn-rimuovi" onclick="rimuoviElemento(this)">🗑️ Rimuovi</button>
+        </div>
+        <input type="hidden" name="codice[]" value="0899">
+        <input type="hidden" name="unita_misura[]" value="pz">
+        <input type="text" name="descrizione[]" class="form-control-custom mb-2" placeholder="Descrizione elemento o lavorazione" required>
+        <div class="row g-2">
+            <div class="col-4">
+                <label class="label-micro d-block mb-1">Quantità</label>
+                <input type="number" step="0.01" name="quantita[]" class="form-control-custom" value="1" required>
+            </div>
+            <div class="col-4">
+                <label class="label-micro d-block mb-1">Prezzo (€)</label>
+                <input type="number" step="0.01" name="prezzo_unitario[]" class="form-control-custom" value="0,00" required>
+            </div>
+            <div class="col-4">
+                <label class="label-micro d-block mb-1">IVA %</label>
+                <input type="number" step="0.01" name="aliquota_iva[]" class="form-control-custom" value="22" required>
+                <input type="hidden" name="sconto[]" value="0">
+            </div>
+        </div>
+    `;
+    contenitore.appendChild(div);
+}
+
+function inserisciDaListino() {
+    let select = document.getElementById('seleziona_listino');
+    let selectedOption = select.options[select.selectedIndex];
+    if (!select.value) return;
+
+    let nome = selectedOption.getAttribute('data-nome');
+    let prezzo = selectedOption.getAttribute('data-prezzo');
+    let um = selectedOption.getAttribute('data-um');
+    let codice = selectedOption.getAttribute('data-codice');
+    let iva = selectedOption.getAttribute('data-iva');
+
+    let contenitore = document.getElementById('contenitore-righe');
+    let div = document.createElement('div');
+    div.className = 'box-elemento';
+    div.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="label-micro">ELEMENTO DA LISTINO</span>
+            <button type="button" class="btn-rimuovi" onclick="rimuoviElemento(this)">🗑️ Rimuovi</button>
+        </div>
+        <input type="hidden" name="codice[]" value="${codice || '0899'}">
+        <input type="hidden" name="unita_misura[]" value="${um || 'pz'}">
+        <input type="text" name="descrizione[]" class="form-control-custom mb-2" value="${nome}" required>
+        <div class="row g-2">
+            <div class="col-4">
+                <label class="label-micro d-block mb-1">Quantità</label>
+                <input type="number" step="0.01" name="quantita[]" class="form-control-custom" value="1" required>
+            </div>
+            <div class="col-4">
+                <label class="label-micro d-block mb-1">Prezzo (€)</label>
+                <input type="number" step="0.01" name="prezzo_unitario[]" class="form-control-custom" value="${prezzo}" required>
+            </div>
+            <div class="col-4">
+                <label class="label-micro d-block mb-1">IVA %</label>
+                <input type="number" step="0.01" name="aliquota_iva[]" class="form-control-custom" value="${iva || 22}" required>
+                <input type="hidden" name="sconto[]" value="0">
+            </div>
+        </div>
+    `;
+    contenitore.appendChild(div);
+    select.value = "";
+}
+</script>
+{% endblock %}

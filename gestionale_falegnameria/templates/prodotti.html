@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    body {
+        background-color: #f8fafc;
+        color: #1e293b;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .title-main {
+        font-size: 28px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 2px;
+        letter-spacing: -0.5px;
+    }
+    .subtitle-main {
+        color: #64748b;
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+
+    .card-custom {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 20px 24px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+    .card-title-custom {
+        font-size: 17px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 16px;
+    }
+
+    /* CONTENITORE TABELLA CENTRALE AD ALTEZZA FISSA CON SCROLL */
+    .table-scroll-container {
+        max-height: calc(100vh - 320px);
+        min-height: 250px;
+        overflow-y: auto;
+        border-radius: 12px;
+        border: 1px solid #f1f5f9;
+    }
+
+    .table-custom {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .table-custom th {
+        font-size: 11px;
+        font-weight: 800;
+        color: #94a3b8;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #f1f5f9;
+        padding: 12px 16px;
+        text-transform: uppercase;
+        position: sticky;
+        top: 0;
+        background-color: #ffffff;
+        z-index: 2;
+    }
+    .table-custom td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 14px;
+    }
+
+    .badge-codice {
+        background-color: #0f172a;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-family: monospace;
+    }
+
+    /* FORM FISSA IN BASSO (STICKY) CON APERTURA DINAMICA */
+    .sticky-bottom-card {
+        position: sticky;
+        bottom: 20px;
+        z-index: 10;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-top: 4px solid #00875a;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12);
+        padding: 14px 20px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-toggle-creazione {
+        background: none;
+        border: none;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0;
+        cursor: pointer;
+        color: #0f172a;
+        font-weight: 700;
+        font-size: 15px;
+    }
+
+    .form-creazione-expandable {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        margin-top: 0;
+    }
+
+    .form-creazione-expandable.open {
+        max-height: 500px; /* Aumentata l'altezza massima per mostrare tutti i campi */
+        opacity: 1;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px dashed #e2e8f0;
+    }
+
+    .icon-chevron {
+        transition: transform 0.3s ease;
+        font-size: 14px;
+    }
+    .icon-chevron.rotate {
+        transform: rotate(180deg);
+    }
+
+    .form-label-custom {
+        font-size: 11px;
+        font-weight: 700;
+        color: #475569;
+        margin-bottom: 4px;
+        display: block;
+    }
+    .form-control-custom, .form-select-custom {
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 14px;
+        color: #1e293b;
+        background-color: #ffffff;
+        width: 100%;
+        transition: border-color 0.15s ease;
+    }
+    .form-control-custom:focus, .form-select-custom:focus {
+        border-color: #d97706;
+        box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+        outline: none;
+    }
+
+    /* PULSANTI AZIONE */
+    .btn-modifica-elemento {
+        background-color: #0284c7;
+        color: #ffffff !important;
+        font-weight: 700;
+        font-size: 12px;
+        border-radius: 8px;
+        padding: 6px 14px;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: background-color 0.2s ease;
+    }
+    .btn-modifica-elemento:hover { background-color: #0369a1; }
+
+    .btn-elimina-elemento {
+        background-color: #dc2626;
+        color: #ffffff !important;
+        font-weight: 700;
+        font-size: 12px;
+        border-radius: 8px;
+        padding: 6px 12px;
+        border: none;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .btn-elimina-elemento:hover { background-color: #b91c1c; }
+
+    /* BACKDROP PER MODALE POP-UP */
+    .custom-modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(15, 23, 42, 0.5);
+        z-index: 1050;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+    .custom-modal-backdrop.show { display: flex !important; }
+</style>
+
+<div class="container-fluid py-4 px-4">
+    <div class="text-center mb-3">
+        <h1 class="title-main">Listino Prodotti e Lavorazioni</h1>
+        <p class="subtitle-main">Gestisci e aggiorna gli articoli in catalogo</p>
+    </div>
+
+    <div class="row justify-content-center g-4">
+        
+        <!-- 1. TABELLA ELENCO PRODOTTI (CENTRALE E SCORREVOLE) -->
+        <div class="col-xl-10">
+            <div class="card-custom mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="card-title-custom m-0">Elementi in Listino</h2>
+                    <span class="badge bg-light text-dark fw-bold border px-3 py-2" style="border-radius: 8px;">
+                        Totale: {{ prodotti|length }} articoli
+                    </span>
+                </div>
+
+                <div class="table-scroll-container">
+                    <table class="table-custom align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;">Codice</th>
+                                <th style="width: 45%;">Nome / Lavorazione</th>
+                                <th style="width: 15%;">Prezzo (€)</th>
+                                <th style="width: 10%;">IVA</th>
+                                <th class="text-end" style="width: 15%;">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in prodotti %}
+                            <tr>
+                                <td>
+                                    <span class="badge-codice">{{ p.codice if p.codice else '-' }}</span>
+                                </td>
+                                <td style="font-weight: 700; color: #0f172a;">{{ p.nome }}</td>
+                                <td style="font-weight: 800; color: #00875a;">
+                                    € {{ "%.2f"|format(p.prezzo_unitario) }} <small class="text-muted fw-normal">/ {{ p.unita_misura }}</small>
+                                </td>
+                                <td>{{ p.aliquota_iva }}%</td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn-modifica-elemento" 
+                                            onclick="apriModalModifica('{{ p.id }}', '{{ p.codice|escape }}', '{{ p.nome|escape }}', '{{ p.prezzo_unitario }}', '{{ p.unita_misura|escape }}', '{{ p.aliquota_iva }}')">
+                                        ✏️ Modifica
+                                    </button>
+                                    <a href="{{ url_for('elimina_prodotto', id=p.id) }}" class="btn-elimina-elemento ms-1" onclick="return confirm('Sei sicuro di voler eliminare questo elemento dal listino?');">
+                                        🗑️
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">Nessun prodotto presente nel listino.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. BARRA DI CREAZIONE PRODOTTO FISSA IN BASSO (COMPLETA E VISIBILE) -->
+            <div class="sticky-bottom-card">
+                <button type="button" class="btn-toggle-creazione" onclick="toggleFormCreazione()">
+                    <span class="d-flex align-items-center gap-2" style="color: #00875a;">
+                        <span style="font-size: 18px;">➕</span> 
+                        <span>Aggiungi Nuovo Prodotto / Lavorazione</span>
+                    </span>
+                    <span id="chevron-icon" class="icon-chevron">▼</span>
+                </button>
+
+                <div id="panel-creazione" class="form-creazione-expandable">
+                    <form action="{{ url_for('prodotti') }}" method="POST">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label-custom">Codice Elemento</label>
+                                <input type="text" name="codice" class="form-control-custom" placeholder="Es. ART-001" required>
+                            </div>
+
+                            <div class="col-md-9">
+                                <label class="form-label-custom">Nome / Descrizione Lavorazione</label>
+                                <input type="text" name="nome" class="form-control-custom" placeholder="Descrizione del prodotto o lavorazione..." required>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label-custom">Prezzo Unitario (€)</label>
+                                <input type="number" step="0.01" name="prezzo_unitario" class="form-control-custom" value="0.00" required>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label-custom">Unità di Misura</label>
+                                <input type="text" name="unita_misura" class="form-control-custom" value="pz" required>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label-custom">Aliquota IVA %</label>
+                                <input type="number" step="0.01" name="aliquota_iva" class="form-control-custom" value="22" required>
+                            </div>
+
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn w-100 fw-bold py-2 rounded-3 text-white" style="background-color: #00875a; border: none;">
+                                    + Salva in Listino
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<!-- POP-UP MODAL MODIFICA ELEMENTO -->
+<div id="backdropModifica" class="custom-modal-backdrop">
+  <div class="modal-dialog modal-dialog-centered" style="width: 100%; max-width: 500px;">
+    <div class="modal-content shadow-lg" style="border-radius: 16px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <div class="modal-header px-4 py-3" style="background-color: #0f172a; color: #ffffff; border-top-left-radius: 15px; border-top-right-radius: 15px; display: flex; justify-content: space-between; align-items: center;">
+        <h5 class="modal-title fw-bold m-0" style="font-size: 16px;">✏️ Modifica Elemento Listino</h5>
+        <button type="button" onclick="chiudiModalModifica()" style="background:none; border:none; color:#fff; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+      <form id="form-modifica-prodotto" action="" method="POST">
+        <div class="modal-body p-4">
+            <div class="mb-3">
+                <label class="form-label-custom">Codice Elemento</label>
+                <input type="text" id="mod-codice" name="codice" class="form-control-custom" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label-custom">Nome / Descrizione</label>
+                <input type="text" id="mod-nome" name="nome" class="form-control-custom" required>
+            </div>
+
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <label class="form-label-custom">Prezzo (€)</label>
+                    <input type="number" step="0.01" id="mod-prezzo" name="prezzo_unitario" class="form-control-custom" required>
+                </div>
+                <div class="col-6">
+                    <label class="form-label-custom">Unità di Misura</label>
+                    <input type="text" id="mod-um" name="unita_misura" class="form-control-custom" required>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label-custom">Aliquota IVA %</label>
+                <input type="number" step="0.01" id="mod-iva" name="aliquota_iva" class="form-control-custom" required>
+            </div>
+        </div>
+        <div class="modal-footer bg-light p-3" style="border-bottom-left-radius: 15px; border-bottom-right-radius: 15px; display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn btn-secondary rounded-3 fw-bold" onclick="chiudiModalModifica()">Annulla</button>
+            <button type="submit" class="btn btn-primary rounded-3 fw-bold px-4" style="background-color: #0284c7; border: none;">Salva Modifiche</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleFormCreazione() {
+    let panel = document.getElementById('panel-creazione');
+    let chevron = document.getElementById('chevron-icon');
+    
+    panel.classList.toggle('open');
+    chevron.classList.toggle('rotate');
+}
+
+function apriModalModifica(id, codice, nome, prezzo, um, iva) {
+    document.getElementById('form-modifica-prodotto').action = "/modifica_prodotto/" + id;
+
+    document.getElementById('mod-codice').value = codice;
+    document.getElementById('mod-nome').value = nome;
+    document.getElementById('mod-prezzo').value = parseFloat(prezzo).toFixed(2);
+    document.getElementById('mod-um').value = um;
+    document.getElementById('mod-iva').value = iva;
+
+    document.getElementById('backdropModifica').classList.add('show');
+}
+
+function chiudiModalModifica() {
+    document.getElementById('backdropModifica').classList.remove('show');
+}
+</script>
+{% endblock %}
