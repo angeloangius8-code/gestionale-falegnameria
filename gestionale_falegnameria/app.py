@@ -16,8 +16,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'falegnameria_secret_key_super_sicura')
-DB_NAME = 'falegnameria.db'
+app.secret_key = 'falegnameria_secret_key_secure'
+
+# Rende la sessione temporanea: scade non appena si chiude il browser
+app.config['SESSION_PERMANENT'] = False
 
 # Cartella base del progetto (percorso assoluto)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
