@@ -355,21 +355,27 @@
                 <div class="mb-3">
                     <label class="form-label-custom">Cliente / Fornitore</label>
                     <select name="anagrafica_id" class="form-select-custom" required>
-                        <option value="" disabled selected>Falegnameria AP di Pietro Angius</option>
+                        <option value="" disabled selected>Seleziona Cliente/Fornitore...</option>
                         {% for a in anagrafiche %}
                             <option value="{{ a.id }}">{{ a.ragione_sociale }}</option>
                         {% endfor %}
                     </select>
                 </div>
 
+                <!-- SELEZIONE RAPIDA DA LISTINO CON AUTO-COMPILAZIONE -->
                 <div class="listino-box">
                     <div class="listino-title">⚡ Aggiungi Rapida da Listino</div>
                     <div class="d-flex gap-2">
                         <select id="seleziona_listino" class="form-select-custom">
                             <option value="">-- Seleziona un Prodotto dal Listino --</option>
                             {% for p in prodotti %}
-                                <option value="{{ p.id }}" data-codice="{{ p.codice }}" data-nome="{{ p.nome }}" data-prezzo="{{ p.prezzo_unitario }}" data-um="{{ p.unita_misura }}" data-iva="{{ p.aliquota_iva }}">
-                                    {{ p.nome }} (€ {{ "%.2f"|format(p.prezzo_unitario) }})
+                                <option value="{{ p.id }}" 
+                                        data-codice="{{ p.codice or '0899' }}" 
+                                        data-nome="{{ p.nome }}" 
+                                        data-prezzo="{{ p.prezzo_unitario or 0.0 }}" 
+                                        data-um="{{ p.unita_misura or 'pz' }}" 
+                                        data-iva="{{ p.aliquota_iva or 22 }}">
+                                    {{ p.codice or '' }} - {{ p.nome }} (€ {{ "%.2f"|format(p.prezzo_unitario|float) }})
                                 </option>
                             {% endfor %}
                         </select>
@@ -388,22 +394,38 @@
                             <span class="label-micro">ELEMENTO</span>
                             <button type="button" class="btn-rimuovi" onclick="rimuoviElemento(this)">🗑️ Rimuovi</button>
                         </div>
-                        <input type="hidden" name="codice[]" value="0899">
-                        <input type="hidden" name="unita_misura[]" value="pz">
-                        <input type="text" name="descrizione[]" class="form-control-custom mb-2" placeholder="Descrizione elemento o lavorazione" required>
+                        
+                        <!-- SELETTORE PRODOTTI IN-LINE -->
+                        <select class="form-select-custom mb-2 selettore-inline" onchange="autoCompilaRigaInline(this)">
+                            <option value="">-- O seleziona da listino --</option>
+                            {% for p in prodotti %}
+                                <option value="{{ p.id }}" 
+                                        data-codice="{{ p.codice or '0899' }}" 
+                                        data-nome="{{ p.nome }}" 
+                                        data-prezzo="{{ p.prezzo_unitario or 0.0 }}" 
+                                        data-um="{{ p.unita_misura or 'pz' }}" 
+                                        data-iva="{{ p.aliquota_iva or 22 }}">
+                                    {{ p.nome }} (€ {{ "%.2f"|format(p.prezzo_unitario|float) }})
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <input type="hidden" name="codice[]" class="input-codice" value="0899">
+                        <input type="hidden" name="unita_misura[]" class="input-um" value="pz">
+                        <input type="text" name="descrizione[]" class="form-control-custom mb-2 input-descrizione" placeholder="Descrizione elemento o lavorazione" required>
                         
                         <div class="row g-2">
                             <div class="col-4">
                                 <label class="label-micro d-block mb-1">Quantità</label>
-                                <input type="number" step="0.01" name="quantita[]" class="form-control-custom" value="1" required>
+                                <input type="number" step="0.01" name="quantita[]" class="form-control-custom input-qta" value="1" required>
                             </div>
                             <div class="col-4">
                                 <label class="label-micro d-block mb-1">Prezzo (€)</label>
-                                <input type="number" step="0.01" name="prezzo_unitario[]" class="form-control-custom" value="0,00" required>
+                                <input type="number" step="0.01" name="prezzo_unitario[]" class="form-control-custom input-prezzo" value="0.00" required>
                             </div>
                             <div class="col-4">
                                 <label class="label-micro d-block mb-1">IVA %</label>
-                                <input type="number" step="0.01" name="aliquota_iva[]" class="form-control-custom" value="22" required>
+                                <input type="number" step="0.01" name="aliquota_iva[]" class="form-control-custom input-iva" value="22" required>
                                 <input type="hidden" name="sconto[]" value="0">
                             </div>
                         </div>
@@ -484,7 +506,7 @@
                             </td>
                             <td style="color: #64748b;">{{ doc.data_doc }}</td>
                             <td style="font-weight: 700; color: #0f172a;">{{ doc.ragione_sociale }}</td>
-                            <td style="font-weight: 800; color: #00875a;">€ {{ "%.2f"|format(doc.totale_documento) }}</td>
+                            <td style="font-weight: 800; color: #00875a;">€ {{ "%.2f"|format(doc.totale_documento|float) }}</td>
                             <td class="text-end text-nowrap">
                                 <a href="{{ url_for('pdf_documento', doc_id=doc.id) }}" class="btn-pdf" target="_blank" title="Scarica PDF">
                                     <i class="fas fa-file-pdf"></i> PDF
@@ -569,47 +591,35 @@ function resetFiltri() {
     applicafiltri();
 }
 
-function aggiungiRigaNuovo() {
-    let contenitore = document.getElementById('contenitore-righe');
-    let div = document.createElement('div');
-    div.className = 'box-elemento';
-    div.innerHTML = `
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="label-micro">ELEMENTO</span>
-            <button type="button" class="btn-rimuovi" onclick="rimuoviElemento(this)">🗑️ Rimuovi</button>
-        </div>
-        <input type="hidden" name="codice[]" value="0899">
-        <input type="hidden" name="unita_misura[]" value="pz">
-        <input type="text" name="descrizione[]" class="form-control-custom mb-2" placeholder="Descrizione elemento o lavorazione" required>
-        <div class="row g-2">
-            <div class="col-4">
-                <label class="label-micro d-block mb-1">Quantità</label>
-                <input type="number" step="0.01" name="quantita[]" class="form-control-custom" value="1" required>
-            </div>
-            <div class="col-4">
-                <label class="label-micro d-block mb-1">Prezzo (€)</label>
-                <input type="number" step="0.01" name="prezzo_unitario[]" class="form-control-custom" value="0,00" required>
-            </div>
-            <div class="col-4">
-                <label class="label-micro d-block mb-1">IVA %</label>
-                <input type="number" step="0.01" name="aliquota_iva[]" class="form-control-custom" value="22" required>
-                <input type="hidden" name="sconto[]" value="0">
-            </div>
-        </div>
-    `;
-    contenitore.appendChild(div);
+function autoCompilaRigaInline(selectElem) {
+    let option = selectElem.options[selectElem.selectedIndex];
+    if (!option.value) return;
+
+    let box = selectElem.closest('.box-elemento');
+    
+    let nome = option.getAttribute('data-nome') || '';
+    let prezzo = option.getAttribute('data-prezzo') || '0.00';
+    let um = option.getAttribute('data-um') || 'pz';
+    let codice = option.getAttribute('data-codice') || '0899';
+    let iva = option.getAttribute('data-iva') || '22';
+
+    box.querySelector('.input-codice').value = codice;
+    box.querySelector('.input-um').value = um;
+    box.querySelector('.input-descrizione').value = nome;
+    box.querySelector('.input-prezzo').value = parseFloat(prezzo).toFixed(2);
+    box.querySelector('.input-iva').value = parseFloat(iva);
 }
 
 function inserisciDaListino() {
     let select = document.getElementById('seleziona_listino');
-    let selectedOption = select.options[select.selectedIndex];
+    let option = select.options[select.selectedIndex];
     if (!select.value) return;
 
-    let nome = selectedOption.getAttribute('data-nome');
-    let prezzo = selectedOption.getAttribute('data-prezzo');
-    let um = selectedOption.getAttribute('data-um');
-    let codice = selectedOption.getAttribute('data-codice');
-    let iva = selectedOption.getAttribute('data-iva');
+    let nome = option.getAttribute('data-nome') || '';
+    let prezzo = option.getAttribute('data-prezzo') || '0.00';
+    let um = option.getAttribute('data-um') || 'pz';
+    let codice = option.getAttribute('data-codice') || '0899';
+    let iva = option.getAttribute('data-iva') || '22';
 
     let contenitore = document.getElementById('contenitore-righe');
     let div = document.createElement('div');
@@ -619,27 +629,64 @@ function inserisciDaListino() {
             <span class="label-micro">ELEMENTO DA LISTINO</span>
             <button type="button" class="btn-rimuovi" onclick="rimuoviElemento(this)">🗑️ Rimuovi</button>
         </div>
-        <input type="hidden" name="codice[]" value="${codice || '0899'}">
-        <input type="hidden" name="unita_misura[]" value="${um || 'pz'}">
-        <input type="text" name="descrizione[]" class="form-control-custom mb-2" value="${nome}" required>
+        <input type="hidden" name="codice[]" class="input-codice" value="${codice}">
+        <input type="hidden" name="unita_misura[]" class="input-um" value="${um}">
+        <input type="text" name="descrizione[]" class="form-control-custom mb-2 input-descrizione" value="${nome}" required>
         <div class="row g-2">
             <div class="col-4">
                 <label class="label-micro d-block mb-1">Quantità</label>
-                <input type="number" step="0.01" name="quantita[]" class="form-control-custom" value="1" required>
+                <input type="number" step="0.01" name="quantita[]" class="form-control-custom input-qta" value="1" required>
             </div>
             <div class="col-4">
                 <label class="label-micro d-block mb-1">Prezzo (€)</label>
-                <input type="number" step="0.01" name="prezzo_unitario[]" class="form-control-custom" value="${prezzo}" required>
+                <input type="number" step="0.01" name="prezzo_unitario[]" class="form-control-custom input-prezzo" value="${parseFloat(prezzo).toFixed(2)}" required>
             </div>
             <div class="col-4">
                 <label class="label-micro d-block mb-1">IVA %</label>
-                <input type="number" step="0.01" name="aliquota_iva[]" class="form-control-custom" value="${iva || 22}" required>
+                <input type="number" step="0.01" name="aliquota_iva[]" class="form-control-custom input-iva" value="${parseFloat(iva)}" required>
                 <input type="hidden" name="sconto[]" value="0">
             </div>
         </div>
     `;
     contenitore.appendChild(div);
     select.value = "";
+}
+
+function aggiungiRigaNuovo() {
+    let contenitore = document.getElementById('contenitore-righe');
+    let primaRiga = contenitore.querySelector('.box-elemento');
+    let div = document.createElement('div');
+    div.className = 'box-elemento';
+    
+    // Clona e ripristina i campi vuoti mantenendo il selettore
+    div.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="label-micro">ELEMENTO</span>
+            <button type="button" class="btn-rimuovi" onclick="rimuoviElemento(this)">🗑️ Rimuovi</button>
+        </div>
+        <select class="form-select-custom mb-2 selettore-inline" onchange="autoCompilaRigaInline(this)">
+            ${document.querySelector('.selettore-inline').innerHTML}
+        </select>
+        <input type="hidden" name="codice[]" class="input-codice" value="0899">
+        <input type="hidden" name="unita_misura[]" class="input-um" value="pz">
+        <input type="text" name="descrizione[]" class="form-control-custom mb-2 input-descrizione" placeholder="Descrizione elemento o lavorazione" required>
+        <div class="row g-2">
+            <div class="col-4">
+                <label class="label-micro d-block mb-1">Quantità</label>
+                <input type="number" step="0.01" name="quantita[]" class="form-control-custom input-qta" value="1" required>
+            </div>
+            <div class="col-4">
+                <label class="label-micro d-block mb-1">Prezzo (€)</label>
+                <input type="number" step="0.01" name="prezzo_unitario[]" class="form-control-custom input-prezzo" value="0.00" required>
+            </div>
+            <div class="col-4">
+                <label class="label-micro d-block mb-1">IVA %</label>
+                <input type="number" step="0.01" name="aliquota_iva[]" class="form-control-custom input-iva" value="22" required>
+                <input type="hidden" name="sconto[]" value="0">
+            </div>
+        </div>
+    `;
+    contenitore.appendChild(div);
 }
 </script>
 {% endblock %}
