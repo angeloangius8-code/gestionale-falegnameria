@@ -1,19 +1,7 @@
-import base64
-import sqlite3
-import io
 import os
-import re
-import requests
-from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, send_file, session
-
-from PIL import Image as PILImage
-
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+import sqlite3
+import psycopg2
+from flask import Flask, render_template, request, redirect, url_for, session, send_file
 
 app = Flask(__name__)
 app.secret_key = 'falegnameria_secret_key_secure'
@@ -21,12 +9,17 @@ app.secret_key = 'falegnameria_secret_key_secure'
 # Rende la sessione temporanea: scade non appena si chiude il browser
 app.config['SESSION_PERMANENT'] = False
 
-# Cartella base del progetto (percorso assoluto)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Recupera l'URL del database dalle variabili di ambiente di Render
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
+    if DATABASE_URL:
+        # Se l'app gira su Render, si collega al database PostgreSQL Cloud
+        url = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        conn = psycopg2.connect(url)
+    else:
+        # Se l'app gira in locale sul tuo PC, usa SQLite
+        conn = sqlite3.connect('falegnameria.db')
     return conn
 
 def init_db():
