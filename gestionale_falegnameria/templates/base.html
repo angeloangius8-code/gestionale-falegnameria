@@ -17,7 +17,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <style>
-        body {
+        html, body {
+            max-width: 100%;
+            overflow-x: hidden; /* Blocca lo scorrimento orizzontale generale della pagina */
             background-color: #f1f5f9;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: #0f172a;
@@ -42,6 +44,8 @@
         .main-content {
             margin-left: 250px;
             padding: 20px;
+            width: calc(100% - 250px);
+            box-sizing: border-box;
         }
         .sidebar .nav-link {
             color: #cbd5e1;
@@ -69,14 +73,16 @@
         /* STILI MOBILE (Smartphone e Tablet < 992px) */
         @media screen and (max-width: 991px) {
             .sidebar {
-                display: none !important; /* Nasconde la sidebar fissa su smartphone */
+                display: none !important; /* Nasconde la sidebar fissa */
             }
             .main-content {
-                margin-left: 0 !important; /* Libera l'intero schermo */
+                margin-left: 0 !important;
+                width: 100% !important;
                 padding: 12px !important;
+                box-sizing: border-box;
             }
             .mobile-header {
-                display: flex !important; /* Mostra la barra superiore mobile */
+                display: flex !important;
                 align-items: center;
                 justify-content: space-between;
                 background-color: #1e293b;
@@ -86,6 +92,20 @@
                 top: 0;
                 z-index: 1050;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            
+            /* Gestione contenitori e tabelle su smartphone per evitare lo scroll orizzontale */
+            .table-responsive {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .card, .container, .container-fluid {
+                max-width: 100% !important;
+                box-sizing: border-box;
+            }
+            input, select, textarea, button {
+                max-width: 100%;
             }
         }
     </style>
@@ -164,7 +184,7 @@
   }
 </script>
 
-<!-- Script per il reset della sessione alla chiusura del browser -->
+<!-- Reset della sessione alla chiusura del browser -->
 <script>
   window.addEventListener('beforeunload', function () {
     navigator.sendBeacon("{{ url_for('logout') }}");
