@@ -1,32 +1,61 @@
 import os
 import sqlite3
-import psycopg2
+import io
+import re
+from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, send_file
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from PIL import Image as PILImage
+
+# Tenta l'importazione sicura di psycopg2
+try:
+    import psycopg2
+    from psycopg2.extras import DictCursor
+    HAS_PSYCOPG2 = True
+except ImportError:
+    HAS_PSYCOPG2 = False
 
 app = Flask(__name__)
 app.secret_key = 'falegnameria_secret_key_secure'
 
-# Rende la sessione temporanea: scade non appena si chiude il browser
+# Rende la sessione temporanea: scade alla chiusura del browser
 app.config['SESSION_PERMANENT'] = False
 
-# Recupera l'URL del database dalle variabili di ambiente di Render
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def get_db_connection():
-    if DATABASE_URL:
-        # Se l'app gira su Render, si collega al database PostgreSQL Cloud
+    if DATABASE_URL and HAS_PSYCOPG2:
+        # Se l'app gira su Render con PostgreSQL
         url = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-        conn = psycopg2.connect(url)
+        conn = psycopg2.connect(url, cursor_factory=DictCursor)
+        return conn
     else:
-        # Se l'app gira in locale sul tuo PC, usa SQLite
-        conn = sqlite3.connect('falegnameria.db')
-    return conn
+        # Se l'app gira in locale sul tuo PC con SQLite
+        conn = sqlite3.connect(os.path.join(BASE_DIR, 'falegnameria.db'))
+        conn.row_factory = sqlite3.Row
+        return conn
+
+def execute_query(conn, query, params=()):
+    """Helper per eseguire query in modo trasparente sia su SQLite che su PostgreSQL."""
+    is_postgres = DATABASE_URL and HAS_PSYCOPG2
+    if is_postgres:
+        query = query.replace('?', '%s')
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    return cursor
 
 def init_db():
     conn = get_db_connection()
-    cursor = conn.cursor()
+    is_postgres = DATABASE_URL and HAS_PSYCOPG2
+    pk_type = "SERIAL PRIMARY KEY" if is_postgres else "INTEGER PRIMARY KEY AUTOINCREMENT"
     
-    cursor.execute('''
+    # 1. Impostazioni
+    execute_query(conn, f'''
         CREATE TABLE IF NOT EXISTS impostazioni (
             id INTEGER PRIMARY KEY DEFAULT 1,
             nome_azienda TEXT NOT NULL,
@@ -48,29 +77,20 @@ def init_db():
             pin_accesso TEXT DEFAULT '1234'
         )
     ''')
-    
-    colonne_impostazioni = [row[1] for row in cursor.execute("PRAGMA table_info(impostazioni)").fetchall()]
-    if 'codice_univoco' not in colonne_impostazioni:
-        cursor.execute("ALTER TABLE impostazioni ADD COLUMN codice_univoco TEXT")
-    if 'pec' not in colonne_impostazioni:
-        cursor.execute("ALTER TABLE impostazioni ADD COLUMN pec TEXT")
-    if 'iban' not in colonne_impostazioni:
-        cursor.execute("ALTER TABLE impostazioni ADD COLUMN iban TEXT")
-    if 'logo_path' not in colonne_impostazioni:
-        cursor.execute("ALTER TABLE impostazioni ADD COLUMN logo_path TEXT DEFAULT 'static/logo.png'")
-    if 'pin_accesso' not in colonne_impostazioni:
-        cursor.execute("ALTER TABLE impostazioni ADD COLUMN pin_accesso TEXT DEFAULT '1234'")
 
-    cursor.execute('SELECT COUNT(*) FROM impostazioni')
-    if cursor.fetchone()[0] == 0:
-        cursor.execute('''
+    # Inserimento record iniziale se vuoto
+    cur = execute_query(conn, 'SELECT COUNT(*) FROM impostazioni')
+    count = cur.fetchone()[0]
+    if count == 0:
+        execute_query(conn, '''
             INSERT INTO impostazioni (id, nome_azienda, ragione_sociale, indirizzo, citta, cap, provincia, p_iva, codice_fiscale, pec, iban, telefono, email, codice_univoco, logo_path, note_pie_pagina, pin_accesso)
             VALUES (1, 'Pietro Angius Falegnameria', 'Falegnameria Angius Pietro', 'Via Tuveri, 2', 'Bonorva', '07012', 'SS', '01301190904', 'NGSPTR66P291452C', 'angiuspietro@pec.it', 'IT09L0101584921000000001218', '3207181348', 'porte.ap@gmail.com', 'KRRH6B9', 'static/logo.png', 'acconto 50% all''ordine saldo ad avviso merce pronta', '1234')
         ''')
 
-    cursor.execute('''
+    # 2. Righe Documento
+    execute_query(conn, f'''
         CREATE TABLE IF NOT EXISTS righe_documento (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {pk_type},
             documento_id INTEGER,
             codice_prod TEXT DEFAULT '',
             descrizione TEXT NOT NULL,
@@ -79,56 +99,58 @@ def init_db():
             prezzo_unitario REAL DEFAULT 0,
             sconto REAL DEFAULT 0,
             aliquota_iva REAL DEFAULT 22,
-            totale_riga REAL DEFAULT 0,
-            FOREIGN KEY (documento_id) REFERENCES documenti (id) ON DELETE CASCADE
+            totale_riga REAL DEFAULT 0
         )
     ''')
 
-    colonne_righe = [row[1] for row in cursor.execute("PRAGMA table_info(righe_documento)").fetchall()]
-    if 'codice_prod' not in colonne_righe:
-        cursor.execute("ALTER TABLE righe_documento ADD COLUMN codice_prod TEXT DEFAULT ''")
-    if 'sconto' not in colonne_righe:
-        cursor.execute("ALTER TABLE righe_documento ADD COLUMN sconto REAL DEFAULT 0")
-    if 'unita_misura' not in colonne_righe:
-        cursor.execute("ALTER TABLE righe_documento ADD COLUMN unita_misura TEXT DEFAULT 'pz'")
-
-    cursor.execute('''
+    # 3. Anagrafica
+    execute_query(conn, f'''
         CREATE TABLE IF NOT EXISTS anagrafica (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tipo TEXT CHECK(tipo IN ('Cliente', 'Fornitore')) NOT NULL,
+            id {pk_type},
+            tipo TEXT NOT NULL,
             ragione_sociale TEXT NOT NULL,
             p_iva TEXT, codice_fiscale TEXT, codice_destinatario TEXT DEFAULT '0000000',
             pec TEXT, indirizzo TEXT, citta TEXT, cap TEXT, provincia TEXT, telefono TEXT, email TEXT
         )
     ''')
-    cursor.execute('''
+
+    # 4. Magazzino
+    execute_query(conn, f'''
         CREATE TABLE IF NOT EXISTS magazzino (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, codice TEXT UNIQUE NOT NULL, descrizione TEXT NOT NULL,
+            id {pk_type}, codice TEXT UNIQUE NOT NULL, descrizione TEXT NOT NULL,
             categoria TEXT NOT NULL, unita_misura TEXT NOT NULL, giacenza REAL DEFAULT 0,
             scorta_minima REAL DEFAULT 0, prezzo_acquisto REAL DEFAULT 0, prezzo_vendita REAL DEFAULT 0
         )
     ''')
-    cursor.execute('''
+
+    # 5. Prodotti
+    execute_query(conn, f'''
         CREATE TABLE IF NOT EXISTS prodotti (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, codice TEXT UNIQUE, nome TEXT NOT NULL,
+            id {pk_type}, codice TEXT UNIQUE, nome TEXT NOT NULL,
             categoria TEXT, prezzo_unitario REAL DEFAULT 0, aliquota_iva REAL DEFAULT 22, unita_misura TEXT DEFAULT 'pz'
         )
     ''')
-    cursor.execute('''
+
+    # 6. Documenti
+    execute_query(conn, f'''
         CREATE TABLE IF NOT EXISTS documenti (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, tipo_doc TEXT NOT NULL, numero_doc INTEGER NOT NULL,
-            anno INTEGER NOT NULL, data_doc DATE NOT NULL, anagrafica_id INTEGER, stato_pagamento TEXT DEFAULT 'In Sospeso',
+            id {pk_type}, tipo_doc TEXT NOT NULL, numero_doc INTEGER NOT NULL,
+            anno INTEGER NOT NULL, data_doc TEXT NOT NULL, anagrafica_id INTEGER, stato_pagamento TEXT DEFAULT 'In Sospeso',
             note TEXT, totale_imponibile REAL DEFAULT 0, totale_iva REAL DEFAULT 0, totale_documento REAL DEFAULT 0
         )
     ''')
-    cursor.execute('''
+
+    # 7. Scadenziario
+    execute_query(conn, f'''
         CREATE TABLE IF NOT EXISTS scadenziario (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, documento_id INTEGER, data_scadenza DATE NOT NULL, importo REAL NOT NULL, stato TEXT DEFAULT 'In Sospeso'
+            id {pk_type}, documento_id INTEGER, data_scadenza TEXT NOT NULL, importo REAL NOT NULL, stato TEXT DEFAULT 'In Sospeso'
         )
     ''')
-    cursor.execute('''
+
+    # 8. Agenda
+    execute_query(conn, f'''
         CREATE TABLE IF NOT EXISTS agenda (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, titolo TEXT NOT NULL, data_evento DATE NOT NULL, ora_evento TIME, tipo_evento TEXT DEFAULT 'Promemoria', priorita TEXT DEFAULT 'Media', stato TEXT DEFAULT 'Da Fare', note TEXT, anagrafica_id INTEGER
+            id {pk_type}, titolo TEXT NOT NULL, data_evento TEXT NOT NULL, ora_evento TEXT, tipo_evento TEXT DEFAULT 'Promemoria', priorita TEXT DEFAULT 'Media', stato TEXT DEFAULT 'Da Fare', note TEXT, anagrafica_id INTEGER
         )
     ''')
 
@@ -142,7 +164,6 @@ init_db()
 def check_pin_protection():
     if request.endpoint in ['login', 'static']:
         return
-    
     if not session.get('authenticated'):
         return redirect(url_for('login'))
 
@@ -151,7 +172,8 @@ def check_pin_protection():
 def login():
     error = None
     conn = get_db_connection()
-    azienda = conn.execute('SELECT * FROM impostazioni WHERE id = 1').fetchone()
+    cur = execute_query(conn, 'SELECT * FROM impostazioni WHERE id = 1')
+    azienda = cur.fetchone()
     conn.close()
 
     if request.method == 'POST':
@@ -249,7 +271,7 @@ def genera_pdf_documento(doc, cliente, righe, info_azienda):
         except Exception:
             logo_element = ""
 
-    az_nome = get_val(info_azienda, 'nome_azienda', 'Pietro Angius  Falegnameria')
+    az_nome = get_val(info_azienda, 'nome_azienda', 'Pietro Angius Falegnameria')
     p_title = Paragraph(az_nome, title_style)
 
     t_header_top = Table([
@@ -263,10 +285,10 @@ def genera_pdf_documento(doc, cliente, righe, info_azienda):
     story.append(t_header_top)
 
     az_ind = f"{get_val(info_azienda, 'indirizzo', 'Via Tuveri,2')} - {get_val(info_azienda, 'cap', '07012')} {get_val(info_azienda, 'citta', 'Bonorva')} ({get_val(info_azienda, 'provincia', 'SS')})"
-    az_tel = f"Tel. CELL. {get_val(info_azienda, 'telefono', '3207181348')} / codice univoco  {get_val(info_azienda, 'codice_univoco', 'KRRH6B9')}"
-    az_mail = f"e-mail: {get_val(info_azienda, 'email', 'porte.ap@gmail.com')}   Pec: {get_val(info_azienda, 'pec', 'angiuspietro@pec.it')}"
-    az_cf_piva = f"C.F. {get_val(info_azienda, 'codice_fiscale', 'NGSPTR66P29I452C')}   P.Iva {get_val(info_azienda, 'p_iva', '01301190904')}"
-    az_iban = f"banco di sardegna  IBAN {get_val(info_azienda, 'iban', 'IT09L0101584921000000001218')}"
+    az_tel = f"Tel. CELL. {get_val(info_azienda, 'telefono', '3207181348')} / codice univoco {get_val(info_azienda, 'codice_univoco', 'KRRH6B9')}"
+    az_mail = f"e-mail: {get_val(info_azienda, 'email', 'porte.ap@gmail.com')} Pec: {get_val(info_azienda, 'pec', 'angiuspietro@pec.it')}"
+    az_cf_piva = f"C.F. {get_val(info_azienda, 'codice_fiscale', 'NGSPTR66P29I452C')} P.Iva {get_val(info_azienda, 'p_iva', '01301190904')}"
+    az_iban = f"banco di sardegna IBAN {get_val(info_azienda, 'iban', 'IT09L0101584921000000001218')}"
 
     text_az_block = f"{az_ind}<br/>{az_tel}<br/>{az_mail}<br/>{az_cf_piva}<br/>{az_iban}"
     
@@ -449,7 +471,7 @@ def genera_pdf_documento(doc, cliente, righe, info_azienda):
 @app.route('/')
 def index():
     vista = request.args.get('vista', 'generale')
-    tipo_filtro = request.args.get('tipo_filtro', 'anno')  # 'anno' oppure 'periodo'
+    tipo_filtro = request.args.get('tipo_filtro', 'anno')
     anno_selezionato = request.args.get('anno', datetime.now().year, type=int)
     data_inizio_str = request.args.get('data_inizio', '')
     data_fine_str = request.args.get('data_fine', '')
@@ -465,7 +487,6 @@ def index():
             tipo_filtro = 'anno'
 
     conn = get_db_connection()
-    cursor = conn.cursor()
 
     fatturato_attivo_mesi = [0.0] * 12
     fatturato_passivo_mesi = [0.0] * 12
@@ -494,8 +515,7 @@ def index():
 
         return valido, dt_doc.month, dt_doc.year
 
-    # Processa Documenti
-    documenti = cursor.execute('''
+    documenti = execute_query(conn, '''
         SELECT d.data_doc, d.tipo_doc, d.totale_documento, d.totale_iva, a.tipo as tipo_anagrafica
         FROM documenti d
         LEFT JOIN anagrafica a ON d.anagrafica_id = a.id
@@ -515,8 +535,7 @@ def index():
                 fatturato_passivo_mesi[idx] += tot_doc
                 saldo_iva_mesi[idx] -= tot_iva
 
-    # Processa Scadenziario
-    scadenze = cursor.execute('''
+    scadenze = execute_query(conn, '''
         SELECT s.data_scadenza, s.importo, s.stato
         FROM scadenziario s
     ''').fetchall()
@@ -531,14 +550,14 @@ def index():
             else:
                 scaduto_mesi[idx] += imp
 
-    tot_clienti = conn.execute("SELECT COUNT(*) FROM anagrafica WHERE tipo = 'Cliente'").fetchone()[0]
-    tot_fornitori = conn.execute("SELECT COUNT(*) FROM anagrafica WHERE tipo = 'Fornitore'").fetchone()[0]
+    tot_clienti = execute_query(conn, "SELECT COUNT(*) FROM anagrafica WHERE tipo = 'Cliente'").fetchone()[0]
+    tot_fornitori = execute_query(conn, "SELECT COUNT(*) FROM anagrafica WHERE tipo = 'Fornitore'").fetchone()[0]
     fatturato_totale = sum(fatturato_attivo_mesi)
     incassato_totale = sum(incassato_mesi)
-    sospeso_totale = conn.execute("SELECT SUM(importo) FROM scadenziario WHERE stato != 'Saldato'").fetchone()[0] or 0.0
-    scorte_basse = conn.execute("SELECT COUNT(*) FROM magazzino WHERE giacenza <= scorta_minima").fetchone()[0]
+    sospeso_totale = execute_query(conn, "SELECT SUM(importo) FROM scadenziario WHERE stato != 'Saldato'").fetchone()[0] or 0.0
+    scorte_basse = execute_query(conn, "SELECT COUNT(*) FROM magazzino WHERE giacenza <= scorta_minima").fetchone()[0]
 
-    entrate = conn.execute('''
+    entrate = execute_query(conn, '''
         SELECT d.numero_doc, d.anno, d.data_doc, d.totale_documento, a.ragione_sociale, s.stato as stato_scad
         FROM documenti d 
         JOIN anagrafica a ON d.anagrafica_id = a.id 
@@ -547,7 +566,7 @@ def index():
         ORDER BY d.id DESC
     ''').fetchall()
 
-    uscite = conn.execute('''
+    uscite = execute_query(conn, '''
         SELECT d.numero_doc, d.anno, d.data_doc, d.totale_documento, a.ragione_sociale 
         FROM documenti d JOIN anagrafica a ON d.anagrafica_id = a.id 
         WHERE a.tipo = 'Fornitore' ORDER BY d.id DESC
@@ -597,7 +616,7 @@ def impostazioni():
         note_pie_pagina = request.form.get('note_pie_pagina', '')
         pin_accesso = request.form.get('pin_accesso', '1234')
         
-        conn.execute('''
+        execute_query(conn, '''
             UPDATE impostazioni SET 
                 nome_azienda = ?, ragione_sociale = ?, indirizzo = ?, citta = ?, cap = ?, 
                 provincia = ?, p_iva = ?, codice_fiscale = ?, pec = ?, iban = ?, 
@@ -608,7 +627,7 @@ def impostazioni():
         conn.close()
         return redirect(url_for('impostazioni'))
 
-    azienda = conn.execute('SELECT * FROM impostazioni WHERE id = 1').fetchone()
+    azienda = execute_query(conn, 'SELECT * FROM impostazioni WHERE id = 1').fetchone()
     conn.close()
     return render_template('impostazioni.html', azienda=azienda)
 
@@ -630,7 +649,7 @@ def anagrafica():
         telefono = request.form['telefono']
         email = request.form['email']
         
-        conn.execute('''
+        execute_query(conn, '''
             INSERT INTO anagrafica (tipo, ragione_sociale, p_iva, codice_fiscale, codice_destinatario, pec, indirizzo, citta, cap, provincia, telefono, email)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (tipo, ragione_sociale, p_iva, codice_fiscale, codice_destinatario, pec, indirizzo, citta, cap, provincia, telefono, email))
@@ -638,14 +657,14 @@ def anagrafica():
         conn.close()
         return redirect(url_for('anagrafica'))
     
-    elenco = conn.execute('SELECT * FROM anagrafica ORDER BY ragione_sociale ASC').fetchall()
+    elenco = execute_query(conn, 'SELECT * FROM anagrafica ORDER BY ragione_sociale ASC').fetchall()
     conn.close()
     return render_template('anagrafica.html', contatti=elenco)
 
 @app.route('/elimina_anagrafica/<int:id>')
 def elimina_anagrafica(id):
     conn = get_db_connection()
-    conn.execute('DELETE FROM anagrafica WHERE id = ?', (id,))
+    execute_query(conn, 'DELETE FROM anagrafica WHERE id = ?', (id,))
     conn.commit()
     conn.close()
     return redirect(url_for('anagrafica'))
@@ -662,7 +681,7 @@ def prodotti():
         aliquota_iva = float(request.form.get('aliquota_iva', 22))
         unita_misura = request.form.get('unita_misura', 'pz')
         
-        conn.execute('''
+        execute_query(conn, '''
             INSERT INTO prodotti (codice, nome, categoria, prezzo_unitario, aliquota_iva, unita_misura)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (codice, nome, categoria, prezzo_unitario, aliquota_iva, unita_misura))
@@ -670,7 +689,7 @@ def prodotti():
         conn.close()
         return redirect(url_for('prodotti'))
         
-    elenco_prodotti = conn.execute('SELECT * FROM prodotti ORDER BY nome ASC').fetchall()
+    elenco_prodotti = execute_query(conn, 'SELECT * FROM prodotti ORDER BY nome ASC').fetchall()
     conn.close()
     return render_template('prodotti.html', prodotti=elenco_prodotti)
 
@@ -683,7 +702,7 @@ def modifica_prodotto(id):
     unita_misura = request.form.get('unita_misura', 'pz')
     aliquota_iva = float(request.form.get('aliquota_iva', 22.0))
 
-    conn.execute('''
+    execute_query(conn, '''
         UPDATE prodotti SET codice = ?, nome = ?, prezzo_unitario = ?, unita_misura = ?, aliquota_iva = ?
         WHERE id = ?
     ''', (codice, nome, prezzo_unitario, unita_misura, aliquota_iva, id))
@@ -694,7 +713,7 @@ def modifica_prodotto(id):
 @app.route('/elimina_prodotto/<int:id>')
 def elimina_prodotto(id):
     conn = get_db_connection()
-    conn.execute('DELETE FROM prodotti WHERE id = ?', (id,))
+    execute_query(conn, 'DELETE FROM prodotti WHERE id = ?', (id,))
     conn.commit()
     conn.close()
     return redirect(url_for('prodotti'))
@@ -713,7 +732,7 @@ def magazzino():
         prezzo_acquisto = request.form['prezzo_acquisto']
         prezzo_vendita = request.form['prezzo_vendita']
         
-        conn.execute('''
+        execute_query(conn, '''
             INSERT INTO magazzino (codice, descrizione, categoria, unita_misura, giacenza, scorta_minima, prezzo_acquisto, prezzo_vendita)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (codice, descrizione, categoria, unita_misura, giacenza, scorta_minima, prezzo_acquisto, prezzo_vendita))
@@ -721,7 +740,7 @@ def magazzino():
         conn.close()
         return redirect(url_for('magazzino'))
     
-    articoli = conn.execute('SELECT * FROM magazzino ORDER BY descrizione ASC').fetchall()
+    articoli = execute_query(conn, 'SELECT * FROM magazzino ORDER BY descrizione ASC').fetchall()
     conn.close()
     return render_template('magazzino.html', articoli=articoli)
 
@@ -756,12 +775,19 @@ def documenti():
         tot_imponibile = 0.0
         tot_iva = 0.0
 
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO documenti (tipo_doc, numero_doc, anno, data_doc, anagrafica_id, totale_imponibile, totale_iva, totale_documento)
-            VALUES (?, ?, ?, ?, ?, 0, 0, 0)
-        ''', (tipo_doc, numero_doc, anno, data_doc, anagrafica_id))
-        doc_id = cursor.lastrowid
+        is_postgres = DATABASE_URL and HAS_PSYCOPG2
+        if is_postgres:
+            cursor = execute_query(conn, '''
+                INSERT INTO documenti (tipo_doc, numero_doc, anno, data_doc, anagrafica_id, totale_imponibile, totale_iva, totale_documento)
+                VALUES (?, ?, ?, ?, ?, 0, 0, 0) RETURNING id
+            ''', (tipo_doc, numero_doc, anno, data_doc, anagrafica_id))
+            doc_id = cursor.fetchone()[0]
+        else:
+            cursor = execute_query(conn, '''
+                INSERT INTO documenti (tipo_doc, numero_doc, anno, data_doc, anagrafica_id, totale_imponibile, totale_iva, totale_documento)
+                VALUES (?, ?, ?, ?, ?, 0, 0, 0)
+            ''', (tipo_doc, numero_doc, anno, data_doc, anagrafica_id))
+            doc_id = cursor.lastrowid
 
         for cod, desc, qta, um, prz, sc, iva in zip(codici_list, descrizioni, quantita_list, unita_list, prezzi_list, sconti_list, iva_list):
             qta_val = float(qta) if qta else 0.0
@@ -776,19 +802,19 @@ def documenti():
             tot_imponibile += imp_riga
             tot_iva += iva_riga
             
-            cursor.execute('''
+            execute_query(conn, '''
                 INSERT INTO righe_documento (documento_id, codice_prod, descrizione, quantita, unita_misura, prezzo_unitario, sconto, aliquota_iva, totale_riga)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (doc_id, cod, desc, qta_val, um, prz_val, sc_val, iva_val, imp_riga + iva_riga))
 
         tot_doc = tot_imponibile + tot_iva
-        cursor.execute('''
+        execute_query(conn, '''
             UPDATE documenti SET totale_imponibile = ?, totale_iva = ?, totale_documento = ? WHERE id = ?
         ''', (tot_imponibile, tot_iva, tot_doc, doc_id))
 
         if tipo_doc == 'Fattura':
             scadenza = request.form.get('data_scadenza', data_doc)
-            cursor.execute('''
+            execute_query(conn, '''
                 INSERT INTO scadenziario (documento_id, data_scadenza, importo, stato)
                 VALUES (?, ?, ?, 'In Sospeso')
             ''', (doc_id, scadenza, tot_doc))
@@ -797,25 +823,24 @@ def documenti():
         conn.close()
         return redirect(url_for('documenti'))
 
-    elenco_doc = conn.execute('''
+    elenco_doc = execute_query(conn, '''
         SELECT d.*, a.ragione_sociale 
         FROM documenti d 
         LEFT JOIN anagrafica a ON d.anagrafica_id = a.id 
         ORDER BY d.id DESC
     ''').fetchall()
     
-    anagrafiche = conn.execute('SELECT id, ragione_sociale FROM anagrafica ORDER BY ragione_sociale ASC').fetchall()
-    prodotti_listino = conn.execute('SELECT * FROM prodotti ORDER BY nome ASC').fetchall()
+    anagrafiche = execute_query(conn, 'SELECT id, ragione_sociale FROM anagrafica ORDER BY ragione_sociale ASC').fetchall()
+    prodotti_listino = execute_query(conn, 'SELECT * FROM prodotti ORDER BY nome ASC').fetchall()
     conn.close()
     return render_template('documenti.html', documenti=elenco_doc, anagrafiche=anagrafiche, prodotti=prodotti_listino)
 
 @app.route('/elimina_documento/<int:doc_id>')
 def elimina_documento(doc_id):
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM righe_documento WHERE documento_id = ?', (doc_id,))
-    cursor.execute('DELETE FROM scadenziario WHERE documento_id = ?', (doc_id,))
-    cursor.execute('DELETE FROM documenti WHERE id = ?', (doc_id,))
+    execute_query(conn, 'DELETE FROM righe_documento WHERE documento_id = ?', (doc_id,))
+    execute_query(conn, 'DELETE FROM scadenziario WHERE documento_id = ?', (doc_id,))
+    execute_query(conn, 'DELETE FROM documenti WHERE id = ?', (doc_id,))
     conn.commit()
     conn.close()
     return redirect(url_for('documenti'))
@@ -823,7 +848,6 @@ def elimina_documento(doc_id):
 @app.route('/modifica_documento/<int:doc_id>', methods=['GET', 'POST'])
 def modifica_documento(doc_id):
     conn = get_db_connection()
-    cursor = conn.cursor()
     
     if request.method == 'POST':
         tipo_doc = request.form['tipo_doc']
@@ -849,7 +873,7 @@ def modifica_documento(doc_id):
         sconti_list = request.form.getlist('sconto[]')
         iva_list = request.form.getlist('aliquota_iva[]')
 
-        cursor.execute('DELETE FROM righe_documento WHERE documento_id = ?', (doc_id,))
+        execute_query(conn, 'DELETE FROM righe_documento WHERE documento_id = ?', (doc_id,))
         
         tot_imponibile = 0.0
         tot_iva = 0.0
@@ -867,29 +891,29 @@ def modifica_documento(doc_id):
             tot_imponibile += imp_riga
             tot_iva += iva_riga
             
-            cursor.execute('''
+            execute_query(conn, '''
                 INSERT INTO righe_documento (documento_id, codice_prod, descrizione, quantita, unita_misura, prezzo_unitario, sconto, aliquota_iva, totale_riga)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (doc_id, cod, desc, qta_val, um, prz_val, sc_val, iva_val, imp_riga + iva_riga))
 
         tot_doc = tot_imponibile + tot_iva
-        cursor.execute('''
+        execute_query(conn, '''
             UPDATE documenti 
             SET tipo_doc = ?, numero_doc = ?, anno = ?, data_doc = ?, anagrafica_id = ?, 
                 totale_imponibile = ?, totale_iva = ?, totale_documento = ? 
             WHERE id = ?
         ''', (tipo_doc, numero_doc, anno, data_doc, anagrafica_id, tot_imponibile, tot_iva, tot_doc, doc_id))
 
-        cursor.execute('UPDATE scadenziario SET importo = ? WHERE documento_id = ?', (tot_doc, doc_id))
+        execute_query(conn, 'UPDATE scadenziario SET importo = ? WHERE documento_id = ?', (tot_doc, doc_id))
 
         conn.commit()
         conn.close()
         return redirect(url_for('documenti'))
 
-    doc = conn.execute('SELECT * FROM documenti WHERE id = ?', (doc_id,)).fetchone()
-    righe = conn.execute('SELECT * FROM righe_documento WHERE documento_id = ?', (doc_id,)).fetchall()
-    anagrafiche = conn.execute('SELECT id, ragione_sociale FROM anagrafica ORDER BY ragione_sociale ASC').fetchall()
-    prodotti_listino = conn.execute('SELECT * FROM prodotti ORDER BY nome ASC').fetchall()
+    doc = execute_query(conn, 'SELECT * FROM documenti WHERE id = ?', (doc_id,)).fetchone()
+    righe = execute_query(conn, 'SELECT * FROM righe_documento WHERE documento_id = ?', (doc_id,)).fetchall()
+    anagrafiche = execute_query(conn, 'SELECT id, ragione_sociale FROM anagrafica ORDER BY ragione_sociale ASC').fetchall()
+    prodotti_listino = execute_query(conn, 'SELECT * FROM prodotti ORDER BY nome ASC').fetchall()
     conn.close()
     
     return render_template('modifica_documento.html', doc=doc, righe=righe, anagrafiche=anagrafiche, prodotti=prodotti_listino)
@@ -897,10 +921,10 @@ def modifica_documento(doc_id):
 @app.route('/pdf_documento/<int:doc_id>')
 def pdf_documento(doc_id):
     conn = get_db_connection()
-    doc = conn.execute('SELECT * FROM documenti WHERE id = ?', (doc_id,)).fetchone()
-    cliente = conn.execute('SELECT * FROM anagrafica WHERE id = ?', (doc['anagrafica_id'],)).fetchone()
-    righe = conn.execute('SELECT * FROM righe_documento WHERE documento_id = ?', (doc_id,)).fetchall()
-    azienda = conn.execute('SELECT * FROM impostazioni WHERE id = 1').fetchone()
+    doc = execute_query(conn, 'SELECT * FROM documenti WHERE id = ?', (doc_id,)).fetchone()
+    cliente = execute_query(conn, 'SELECT * FROM anagrafica WHERE id = ?', (doc['anagrafica_id'],)).fetchone()
+    righe = execute_query(conn, 'SELECT * FROM righe_documento WHERE documento_id = ?', (doc_id,)).fetchall()
+    azienda = execute_query(conn, 'SELECT * FROM impostazioni WHERE id = 1').fetchone()
     conn.close()
 
     pdf_buffer = genera_pdf_documento(doc, cliente, righe, azienda)
@@ -916,10 +940,10 @@ def pdf_documento(doc_id):
 @app.route('/firma_documento/<int:doc_id>', methods=['GET', 'POST'])
 def firma_documento(doc_id):
     conn = get_db_connection()
-    doc = conn.execute('SELECT * FROM documenti WHERE id = ?', (doc_id,)).fetchone()
+    doc = execute_query(conn, 'SELECT * FROM documenti WHERE id = ?', (doc_id,)).fetchone()
     
     if request.method == 'POST':
-        conn.execute("UPDATE documenti SET note = 'Firmato Digitalmente con Aruba' WHERE id = ?", (doc_id,))
+        execute_query(conn, "UPDATE documenti SET note = 'Firmato Digitalmente con Aruba' WHERE id = ?", (doc_id,))
         conn.commit()
         conn.close()
         return redirect(url_for('documenti'))
@@ -940,7 +964,7 @@ def agenda():
         note = request.form.get('note', '')
         anagrafica_id = request.form.get('anagrafica_id') or None
         
-        conn.execute('''
+        execute_query(conn, '''
             INSERT INTO agenda (titolo, data_evento, ora_evento, tipo_evento, priorita, note, anagrafica_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (titolo, data_evento, ora_evento, tipo_evento, priorita, note, anagrafica_id))
@@ -948,21 +972,21 @@ def agenda():
         conn.close()
         return redirect(url_for('agenda'))
     
-    eventi = conn.execute('''
+    eventi = execute_query(conn, '''
         SELECT ag.*, a.ragione_sociale 
         FROM agenda ag 
         LEFT JOIN anagrafica a ON ag.anagrafica_id = a.id 
         ORDER BY ag.data_evento ASC, ag.ora_evento ASC
     ''').fetchall()
     
-    anagrafiche = conn.execute('SELECT id, ragione_sociale FROM anagrafica ORDER BY ragione_sociale ASC').fetchall()
+    anagrafiche = execute_query(conn, 'SELECT id, ragione_sociale FROM anagrafica ORDER BY ragione_sociale ASC').fetchall()
     conn.close()
     return render_template('agenda.html', eventi=eventi, anagrafiche=anagrafiche)
 
 @app.route('/completa_evento/<int:evento_id>')
 def completa_evento(evento_id):
     conn = get_db_connection()
-    conn.execute("UPDATE agenda SET stato = 'Completato' WHERE id = ?", (evento_id,))
+    execute_query(conn, "UPDATE agenda SET stato = 'Completato' WHERE id = ?", (evento_id,))
     conn.commit()
     conn.close()
     return redirect(url_for('agenda'))
@@ -970,7 +994,7 @@ def completa_evento(evento_id):
 @app.route('/elimina_evento/<int:evento_id>')
 def elimina_evento(evento_id):
     conn = get_db_connection()
-    conn.execute('DELETE FROM agenda WHERE id = ?', (evento_id,))
+    execute_query(conn, 'DELETE FROM agenda WHERE id = ?', (evento_id,))
     conn.commit()
     conn.close()
     return redirect(url_for('agenda'))
@@ -979,7 +1003,7 @@ def elimina_evento(evento_id):
 @app.route('/scadenziario')
 def scadenziario():
     conn = get_db_connection()
-    scadenze = conn.execute('''
+    scadenze = execute_query(conn, '''
         SELECT s.*, d.numero_doc, d.tipo_doc, d.anno, a.ragione_sociale 
         FROM scadenziario s
         JOIN documenti d ON s.documento_id = d.id
@@ -992,17 +1016,15 @@ def scadenziario():
 @app.route('/salda_pagamento/<int:scadenza_id>')
 def salda_pagamento(scadenza_id):
     conn = get_db_connection()
-    scadenza = conn.execute("SELECT * FROM scadenziario WHERE id = ?", (scadenza_id,)).fetchone()
+    scadenza = execute_query(conn, "SELECT * FROM scadenziario WHERE id = ?", (scadenza_id,)).fetchone()
     
     if scadenza:
-        conn.execute("UPDATE scadenziario SET stato = 'Saldato' WHERE id = ?", (scadenza_id,))
-        conn.execute("UPDATE documenti SET stato_pagamento = 'Saldato' WHERE id = ?", (scadenza['documento_id'],))
+        execute_query(conn, "UPDATE scadenziario SET stato = 'Saldato' WHERE id = ?", (scadenza_id,))
+        execute_query(conn, "UPDATE documenti SET stato_pagamento = 'Saldato' WHERE id = ?", (scadenza['documento_id'],))
         conn.commit()
         
     conn.close()
     return redirect(url_for('scadenziario'))
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
-    if __name__ == '__main__':
-        app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
