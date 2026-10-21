@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Gestionale Falegnameria</title>
     
+    <!-- Configurazione PWA -->
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <meta name="theme-color" content="#1e293b">
     <meta name="mobile-web-app-capable" content="yes">
@@ -12,6 +13,7 @@
     <meta name="apple-mobile-web-app-title" content="Falegnameria">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='logo.png') }}">
 
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <style>
@@ -23,6 +25,7 @@
             padding: 0;
         }
 
+        /* STILI DESKTOP (PC) */
         .sidebar {
             width: 250px;
             background: #1e293b;
@@ -63,16 +66,17 @@
             display: none !important;
         }
 
+        /* STILI MOBILE (Smartphone e Tablet < 992px) */
         @media screen and (max-width: 991px) {
             .sidebar {
-                display: none !important;
+                display: none !important; /* Nasconde la sidebar fissa su smartphone */
             }
             .main-content {
-                margin-left: 0 !important;
+                margin-left: 0 !important; /* Libera l'intero schermo */
                 padding: 12px !important;
             }
             .mobile-header {
-                display: flex !important;
+                display: flex !important; /* Mostra la barra superiore mobile */
                 align-items: center;
                 justify-content: space-between;
                 background-color: #1e293b;
@@ -88,28 +92,30 @@
 </head>
 <body>
 
+<!-- BARRA SUPERIORE MOBILE -->
 <div class="mobile-header">
-    <span class="fw-bold fs-5">🪵 Falegnameria</span>
+    <span class="fw-bold fs-5">🛠️ EasyFalegnameria</span>
     <button class="btn btn-primary btn-sm fw-bold px-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
         ☰ Menu
     </button>
 </div>
 
+<!-- MENU A COMPARSA LATERALE MOBILE (Offcanvas) -->
 <div class="offcanvas offcanvas-start text-white" tabindex="-1" id="mobileMenu" style="width: 280px; background-color: #1e293b !important;">
     <div class="offcanvas-header border-bottom border-secondary">
-        <h5 class="offcanvas-title fw-bold">🪵 Falegnameria</h5>
+        <h5 class="offcanvas-title fw-bold">🛠️ EasyFalegnameria</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
     <div class="offcanvas-body d-flex flex-column justify-content-between">
         <ul class="nav flex-column px-1">
             <li class="nav-item"><a href="{{ url_for('index') }}" class="nav-link text-white py-2 fs-6">📊 Dashboard</a></li>
-            <li class="nav-item"><a href="{{ url_for('documenti') }}" class="nav-link text-white py-2 fs-6">📄 Documenti</a></li>
-            <li class="nav-item"><a href="{{ url_for('scadenziario') }}" class="nav-link text-white py-2 fs-6">📅 Scadenziario</a></li>
-            <li class="nav-item"><a href="{{ url_for('anagrafica') }}" class="nav-link text-white py-2 fs-6">👥 Anagrafica</a></li>
-            <li class="nav-item"><a href="{{ url_for('prodotti') }}" class="nav-link text-white py-2 fs-6">🏷️ Prodotti</a></li>
-            <li class="nav-item"><a href="{{ url_for('magazzino') }}" class="nav-link text-white py-2 fs-6">📦 Magazzino</a></li>
-            <li class="nav-item"><a href="{{ url_for('agenda') }}" class="nav-link text-white py-2 fs-6">📆 Agenda</a></li>
-            <li class="nav-item"><a href="{{ url_for('impostazioni') }}" class="nav-link text-white py-2 fs-6">⚙️ Impostazioni</a></li>
+            <li class="nav-item"><a href="{{ url_for('impostazioni') }}" class="nav-link text-white py-2 fs-6">🏢 Dati Azienda / Testatina</a></li>
+            <li class="nav-item"><a href="{{ url_for('anagrafica') }}" class="nav-link text-white py-2 fs-6">👥 Anagrafica Clienti/Fornitori</a></li>
+            <li class="nav-item"><a href="{{ url_for('prodotti') }}" class="nav-link text-white py-2 fs-6">🏷️ Listino Prodotti/Servizi</a></li>
+            <li class="nav-item"><a href="{{ url_for('magazzino') }}" class="nav-link text-white py-2 fs-6">📦 Magazzino Legname</a></li>
+            <li class="nav-item"><a href="{{ url_for('documenti') }}" class="nav-link text-white py-2 fs-6">📄 Fatture & Preventivi</a></li>
+            <li class="nav-item"><a href="{{ url_for('scadenziario') }}" class="nav-link text-white py-2 fs-6">📅 Scadenziario & Incassi</a></li>
+            <li class="nav-item"><a href="{{ url_for('agenda') }}" class="nav-link text-white py-2 fs-6">📆 Agenda & Impegni</a></li>
         </ul>
         <div class="pt-3 border-top border-secondary">
             <a href="{{ url_for('logout') }}" class="btn btn-outline-danger w-100 fw-bold">🚪 Esci</a>
@@ -117,20 +123,21 @@
     </div>
 </div>
 
+<!-- SIDEBAR FISSA PER DESKTOP -->
 <div class="sidebar">
     <div>
         <div class="sidebar-brand">
-            🪵 Falegnameria
+            🛠️ EasyFalegnameria
         </div>
         <ul class="nav flex-column px-2">
             <li class="nav-item"><a href="{{ url_for('index') }}" class="nav-link">📊 Dashboard</a></li>
-            <li class="nav-item"><a href="{{ url_for('documenti') }}" class="nav-link">📄 Documenti</a></li>
-            <li class="nav-item"><a href="{{ url_for('scadenziario') }}" class="nav-link">📅 Scadenziario</a></li>
-            <li class="nav-item"><a href="{{ url_for('anagrafica') }}" class="nav-link">👥 Anagrafica</a></li>
-            <li class="nav-item"><a href="{{ url_for('prodotti') }}" class="nav-link">🏷️ Prodotti</a></li>
-            <li class="nav-item"><a href="{{ url_for('magazzino') }}" class="nav-link">📦 Magazzino</a></li>
-            <li class="nav-item"><a href="{{ url_for('agenda') }}" class="nav-link">📆 Agenda</a></li>
-            <li class="nav-item"><a href="{{ url_for('impostazioni') }}" class="nav-link">⚙️ Impostazioni</a></li>
+            <li class="nav-item"><a href="{{ url_for('impostazioni') }}" class="nav-link">🏢 Dati Azienda / Testatina</a></li>
+            <li class="nav-item"><a href="{{ url_for('anagrafica') }}" class="nav-link">👥 Anagrafica Clienti/Fornitori</a></li>
+            <li class="nav-item"><a href="{{ url_for('prodotti') }}" class="nav-link">🏷️ Listino Prodotti/Servizi</a></li>
+            <li class="nav-item"><a href="{{ url_for('magazzino') }}" class="nav-link">📦 Magazzino Legname</a></li>
+            <li class="nav-item"><a href="{{ url_for('documenti') }}" class="nav-link">📄 Fatture & Preventivi</a></li>
+            <li class="nav-item"><a href="{{ url_for('scadenziario') }}" class="nav-link">📅 Scadenziario & Incassi</a></li>
+            <li class="nav-item"><a href="{{ url_for('agenda') }}" class="nav-link">📆 Agenda & Impegni</a></li>
         </ul>
     </div>
     <div class="p-3 border-top border-secondary">
@@ -138,12 +145,15 @@
     </div>
 </div>
 
+<!-- CONTENUTO PRINCIPALE -->
 <div class="main-content">
     {% block content %}{% endblock %}
 </div>
 
+<!-- JS Bootstrap 5 -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
+<!-- Registrazione Service Worker -->
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -153,5 +163,13 @@
     });
   }
 </script>
+
+<!-- Script per il reset della sessione alla chiusura del browser -->
+<script>
+  window.addEventListener('beforeunload', function () {
+    navigator.sendBeacon("{{ url_for('logout') }}");
+  });
+</script>
+
 </body>
 </html>
