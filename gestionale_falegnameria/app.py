@@ -22,6 +22,10 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = 'falegnameria_secret_key_secure'
 
+# Rende la sessione temporanea (scade alla chiusura della scheda/browser)
+app.config['SESSION_PERMANENT'] = False
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # Scade automaticamente dopo 1 ora
+
 # Rende la sessione temporanea: scade alla chiusura del browser
 app.config['SESSION_PERMANENT'] = False
 
