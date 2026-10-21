@@ -1016,7 +1016,33 @@ def scadenziario():
     ''').fetchall()
     conn.close()
     return render_template('scadenziario.html', scadenze=scadenze)
+    
+@app.route('/modifica_anagrafica/<int:id>', methods=['POST'])
+def modifica_anagrafica(id):
+    conn = get_db_connection()
+    tipo = request.form['tipo']
+    ragione_sociale = request.form['ragione_sociale']
+    p_iva = request.form.get('p_iva', '')
+    codice_fiscale = request.form.get('codice_fiscale', '')
+    codice_destinatario = request.form.get('codice_destinatario', '0000000')
+    pec = request.form.get('pec', '')
+    indirizzo = request.form.get('indirizzo', '')
+    citta = request.form.get('citta', '')
+    cap = request.form.get('cap', '')
+    provincia = request.form.get('provincia', '')
+    telefono = request.form.get('telefono', '')
+    email = request.form.get('email', '')
 
+    execute_query(conn, '''
+        UPDATE anagrafica 
+        SET tipo = ?, ragione_sociale = ?, p_iva = ?, codice_fiscale = ?, codice_destinatario = ?,
+            pec = ?, indirizzo = ?, citta = ?, cap = ?, provincia = ?, telefono = ?, email = ?
+        WHERE id = ?
+    ''', (tipo, ragione_sociale, p_iva, codice_fiscale, codice_destinatario, pec, indirizzo, citta, cap, provincia, telefono, email, id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('anagrafica'))
+    
 @app.route('/salda_pagamento/<int:scadenza_id>')
 def salda_pagamento(scadenza_id):
     conn = get_db_connection()
